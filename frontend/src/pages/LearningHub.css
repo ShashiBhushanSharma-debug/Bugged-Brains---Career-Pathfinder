@@ -1,0 +1,48 @@
+.learning-hub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.learning-hub-section-title {
+  font-size: 18px;
+  margin-bottom: var(--space-3);
+}
+
+.learning-hub-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.learning-hub-section-head .learning-hub-section-title { margin-bottom: 0; }
+
+.learning-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.learning-hub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.learning-hub-filter {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: capitalize;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+}
+.learning-hub-filter:hover { border-color: var(--ink); color: var(--ink); }
+.learning-hub-filter.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}

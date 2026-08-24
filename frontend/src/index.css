@@ -1,0 +1,191 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ===================================================================
+   CAREER PATHFINDER — DESIGN SYSTEM
+   Visual identity: "The Pathline" — a transit-map metaphor. Learning is
+   drawn as a route: stations (skills/courses/projects) connected by a
+   line, with clear status states (completed / current / recommended /
+   locked / adapted). This motif repeats across hero, skill graph,
+   roadmap and adaptive re-planning so the product's core idea —
+   your route, plotted and re-routed — is always visible.
+   =================================================================== */
+
+:root {
+  /* ---- Color: ink & paper ---- */
+  --ink: #12151c;
+  --ink-2: #232833;
+  --ink-soft: #4c5361;
+  --ink-faint: #8a90a0;
+  --paper: #f5f5f1;
+  --paper-raised: #ffffff;
+  --line: #dedad2;
+  --line-strong: #c7c2b8;
+
+  /* ---- Color: route accents ---- */
+  --pine: #2b6357;        /* completed / mastered / go */
+  --pine-ink: #17352c;
+  --pine-soft: #e2ede8;
+  --amber: #b9812e;       /* current / in progress */
+  --amber-ink: #543e14;
+  --amber-soft: #f4ebd8;
+  --rust: #9c4530;        /* gap / missing / removed */
+  --rust-ink: #4f2116;
+  --rust-soft: #f2e4dd;
+  --slate: #3d5a80;       /* recommended / informational */
+  --slate-soft: #e4ebf2;
+
+  /* ---- Type ---- */
+  --font-display: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+
+  /* ---- Scale ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-sm: 0 1px 2px rgba(18, 21, 28, 0.06);
+  --shadow-md: 0 4px 16px rgba(18, 21, 28, 0.08);
+  --shadow-lg: 0 12px 40px rgba(18, 21, 28, 0.14);
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font-display); cursor: pointer; }
+ul, ol { list-style: none; }
+img, svg { display: block; max-width: 100%; }
+
+::selection { background: var(--amber-soft); color: var(--amber-ink); }
+:focus-visible { outline: 2px solid var(--slate); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Layout shells ---- */
+.app-shell { display: flex; min-height: 100vh; }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.app-content {
+  flex: 1;
+  padding: var(--space-6) var(--space-7);
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .app-content { padding: var(--space-4) var(--space-4) var(--space-8); }
+}
+
+/* ---- Type utilities ---- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.data-label { font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft); }
+.section-title { font-size: clamp(26px, 3vw, 36px); margin-bottom: var(--space-2); }
+.section-lede { font-family: var(--font-body); color: var(--ink-soft); font-size: 17px; max-width: 640px; }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: 14.5px;
+  font-weight: 600;
+  padding: 12px 22px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: transform 0.15s var(--ease), background 0.15s var(--ease), border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { background: var(--pine-ink); }
+.btn-secondary { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.btn-secondary:hover { border-color: var(--ink); background: var(--paper-raised); }
+.btn-ghost { background: transparent; color: var(--ink-soft); padding: 8px 12px; }
+.btn-ghost:hover { color: var(--ink); background: rgba(18, 21, 28, 0.05); }
+.btn-sm { padding: 8px 14px; font-size: 13px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- Card ---- */
+.card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+/* ---- Status color helpers (shared across skills, roadmap, resources) ---- */
+.status-completed { color: var(--pine-ink); }
+.status-current { color: var(--amber-ink); }
+.status-recommended { color: var(--slate); }
+.status-locked { color: var(--ink-faint); }
+.status-adapted { color: var(--rust-ink); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-completed { background: var(--pine); }
+.dot-current { background: var(--amber); }
+.dot-recommended { background: var(--slate); }
+.dot-locked { background: var(--ink-faint); }
+.dot-adapted { background: var(--rust); }
+
+/* ---- Skeleton / loading ---- */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--line) 25%, #ece9e2 37%, var(--line) 63%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; }
