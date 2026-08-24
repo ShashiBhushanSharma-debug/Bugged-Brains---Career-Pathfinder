@@ -1,0 +1,58 @@
+.assessment-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+}
+
+.assessment-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--slate-soft);
+  color: var(--slate);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.assessment-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.assessment-card-body h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.assessment-card-meta {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.assessment-card-unlocks {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+
+.assessment-card-action {
+  flex-shrink: 0;
+}
+
+.assessment-card-score {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--pine-ink);
+}
+
+@media (max-width: 560px) {
+  .assessment-card { flex-wrap: wrap; }
+}

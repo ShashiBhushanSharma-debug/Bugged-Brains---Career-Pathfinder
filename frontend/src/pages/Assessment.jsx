@@ -1,0 +1,133 @@
+import { useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { CheckCircle2, XCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import { assessments, scoreAssessment } from '../data/assessmentData';
+import './Assessment.css';
+
+export default function Assessment() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const assessment = assessments[id];
+
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  if (!assessment) {
+    return (
+      <EmptyState
+        title="Assessment not found"
+        description="This assessment isn't available yet."
+        action={<Link to="/assessments" className="btn btn-secondary btn-sm">Back to assessments</Link>}
+      />
+    );
+  }
+
+  const question = assessment.questions[index];
+  const total = assessment.questions.length;
+  const answeredCount = Object.keys(answers).length;
+
+  const selectAnswer = (optionId) => setAnswers((prev) => ({ ...prev, [question.id]: optionId }));
+
+  if (submitted) {
+    const result = scoreAssessment(assessment, answers);
+    return (
+      <div className="assessment-page">
+        <div className="assessment-result card">
+          <span className="eyebrow">Result</span>
+          <div className="assessment-result-score">{result.score}%</div>
+          <p className="section-lede">{result.correctCount} of {result.total} correct on {assessment.title}.</p>
+
+          {result.strengths.length > 0 && (
+            <div className="assessment-result-block">
+              <span className="eyebrow">Strong areas</span>
+              <div className="assessment-result-tags">
+                {result.strengths.map((s) => (
+                  <span className="assessment-result-tag good" key={s}><CheckCircle2 size={13} /> {s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.weakAreas.length > 0 && (
+            <div className="assessment-result-block">
+              <span className="eyebrow">Needs reinforcement</span>
+              <div className="assessment-result-tags">
+                {result.weakAreas.map((s) => (
+                  <span className="assessment-result-tag weak" key={s}><XCircle size={13} /> {s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="assessment-result-next">{result.recommendedNext}</p>
+
+          <div className="assessment-result-actions">
+            <Button variant="secondary" onClick={() => navigate('/assessments')}>Back to assessments</Button>
+            <Button icon={ArrowRight} onClick={() => navigate('/adaptive')}>Update My Roadmap</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="assessment-page">
+      <div className="assessment-progress-head">
+        <span className="eyebrow">{assessment.title}</span>
+        <span className="data-label">{answeredCount} / {total} answered</span>
+      </div>
+      <div className="assessment-progress-track">
+        <div style={{ width: `${((index + 1) / total) * 100}%` }} />
+      </div>
+
+      <div className="assessment-nav-dots">
+        {assessment.questions.map((q, i) => (
+          <button
+            key={q.id}
+            className={`assessment-nav-dot ${i === index ? 'active' : ''} ${answers[q.id] ? 'answered' : ''}`}
+            onClick={() => setIndex(i)}
+            aria-label={`Go to question ${i + 1}`}
+            type="button"
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+
+      <div className="card assessment-question-card">
+        <span className="data-label">Question {index + 1} of {total}</span>
+        <h2 className="assessment-question-prompt">{question.prompt}</h2>
+        <div className="assessment-options">
+          {question.options.map((opt) => (
+            <button
+              key={opt.id}
+              className={`assessment-option ${answers[question.id] === opt.id ? 'selected' : ''}`}
+              onClick={() => selectAnswer(opt.id)}
+              type="button"
+            >
+              {opt.text}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="assessment-footer">
+        <Button variant="ghost" icon={ArrowLeft} iconPosition="left" onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0}>
+          Previous
+        </Button>
+        {index < total - 1 ? (
+          <Button icon={ArrowRight} onClick={() => setIndex((i) => i + 1)} disabled={!answers[question.id]}>
+            Next
+          </Button>
+        ) : (
+          <Button onClick={() => setSubmitted(true)} disabled={answeredCount < total}>
+            Submit
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,21 @@
+.roadmap-connector {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: 28px;
+}
+
+.roadmap-connector-line {
+  width: 2px;
+  height: 100%;
+  background: var(--line-strong);
+}
+
+.roadmap-connector-added .roadmap-connector-line {
+  background: var(--pine);
+}
+
+.roadmap-connector-removed .roadmap-connector-line {
+  background: var(--rust);
+  opacity: 0.5;
+}

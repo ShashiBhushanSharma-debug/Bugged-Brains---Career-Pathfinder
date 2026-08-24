@@ -1,0 +1,67 @@
+.progress-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.progress-rings {
+  display: flex;
+  gap: var(--space-7);
+  justify-content: center;
+}
+.progress-ring-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.progress-ring-block span {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.progress-skill-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.progress-skill-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 44px;
+  align-items: center;
+  gap: var(--space-3);
+}
+.progress-skill-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 13.5px;
+}
+.progress-skill-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.progress-skill-fill { height: 100%; border-radius: 999px; }
+.fill-completed { background: var(--pine); }
+.fill-current { background: var(--amber); }
+.fill-adapted { background: var(--rust); }
+.fill-recommended { background: var(--slate); }
+.fill-locked { background: var(--ink-faint); }
+
+@media (max-width: 900px) {
+  .progress-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .progress-rings { flex-direction: column; align-items: center; gap: var(--space-5); }
+  .progress-stats { grid-template-columns: 1fr; }
+  .progress-skill-row { grid-template-columns: 90px 1fr 36px; }
+}
