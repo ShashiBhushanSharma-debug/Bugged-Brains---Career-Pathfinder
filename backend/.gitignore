@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+lib/
+lib64/
+.installed.cfg
+*.egg-info
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables — NEVER commit the real .env
+.env
+# .env.example is safe to commit (it has no real secrets)
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
