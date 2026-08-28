@@ -14,6 +14,7 @@ export default function Assessment() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [isReplanning, setIsReplanning] = useState(false);
 
   if (!assessment) {
     return (
@@ -30,6 +31,43 @@ export default function Assessment() {
   const answeredCount = Object.keys(answers).length;
 
   const selectAnswer = (optionId) => setAnswers((prev) => ({ ...prev, [question.id]: optionId }));
+
+  const handleUpdateRoadmap = async (resultScore) => {
+    setIsReplanning(true);
+    
+    // Construct the payload required by the backend /api/me/replan endpoint
+    const signal = {
+      step_id: assessment.id || id,
+      target_skill_id: assessment.skill_id || assessment.skillId || id,
+      score_percentage: resultScore,
+      user_feedback: ""
+    };
+
+    try {
+      const response = await fetch('/api/me/replan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(signal),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const replanResult = await response.json();
+      
+      // Navigate to the adaptive replanning view with the AI's generated response
+      navigate('/adaptive', { state: { aiResponse: replanResult } });
+    } catch (error) {
+      console.error("Failed to trigger AI adaptive replan:", error);
+      // Fallback navigation in case backend call fails
+      navigate('/adaptive');
+    } finally {
+      setIsReplanning(false);
+    }
+  };
 
   if (submitted) {
     const result = scoreAssessment(assessment, answers);
@@ -66,7 +104,13 @@ export default function Assessment() {
 
           <div className="assessment-result-actions">
             <Button variant="secondary" onClick={() => navigate('/assessments')}>Back to assessments</Button>
-            <Button icon={ArrowRight} onClick={() => navigate('/adaptive')}>Update My Roadmap</Button>
+            <Button 
+              icon={ArrowRight} 
+              onClick={() => handleUpdateRoadmap(result.score)}
+              disabled={isReplanning}
+            >
+              {isReplanning ? 'AI Replanning...' : 'Update My Roadmap'}
+            </Button>
           </div>
         </div>
       </div>

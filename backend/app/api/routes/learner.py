@@ -15,6 +15,8 @@ from app.database.connection import get_pool
 from app.database.repositories import learner_repo, learning_history_repo
 from app.schemas.learner import LearnerProfileResponse, LearnerProfileUpdate
 from app.schemas.learning_history import ActivityLogItem
+from pydantic import BaseModel
+from app.services.ai_adaptive_graph import adaptive_graph_app
 
 router = APIRouter(prefix="/api", tags=["Learner"])
 
@@ -26,6 +28,11 @@ def _get_learner_id(
 ) -> str:
     return settings.dev_learner_id
 
+class AssessmentSignal(BaseModel):
+    step_id: str
+    target_skill_id: str
+    score_percentage: float
+    user_feedback: str | None = None
 
 @router.get(
     "/me",
@@ -78,3 +85,52 @@ async def get_activity(
 ) -> list[ActivityLogItem]:
     rows = await learning_history_repo.get_activity_log(pool, learner_id, limit=limit)
     return [ActivityLogItem(**r) for r in rows]
+
+@router.post(
+    "/me/replan",
+    summary="Trigger AI Adaptive Replanning",
+    description="Runs Bayesian Knowledge Tracing and a LangGraph LLM agent to dynamically adjust the learner's roadmap based on assessment results.",
+)
+async def trigger_adaptive_replan(
+    signal: AssessmentSignal,
+    learner_id: str = Depends(_get_learner_id),
+    pool: Pool = Depends(get_pool),
+) -> dict:
+    # 1. Fetch current learner state
+    profile = await learner_repo.get_learner_by_id(pool, learner_id)
+    if not profile or not profile.get("target_career_id"):
+        raise HTTPException(status_code=400, detail="Learner profile or target career not found.")
+        
+    # 2. Fetch current skill proficiencies
+    async with pool.acquire() as conn:
+        skill_rows = await conn.fetch(
+            "SELECT skill_id, proficiency_score FROM learner_skills WHERE learner_id = $1", 
+            learner_id
+        )
+    current_skills = {r["skill_id"]: float(r["proficiency_score"]) / 100.0 for r in skill_rows}
+
+    # 3. Construct the initial state for LangGraph
+    initial_state = {
+        "pool": pool,
+        "learner_id": learner_id,
+        "target_career_id": profile["target_career_id"],
+        "assessment_signal": signal.model_dump(),
+        "current_skills": current_skills,
+        "career_requirements": {},
+        "skill_gaps": [],
+        "current_roadmap_nodes": [],
+        "new_mastery_score": None,
+        "replan_output": None,
+        "replan_status_message": ""
+    }
+
+    # 4. Execute the Async LangGraph Workflow
+    final_state = await adaptive_graph_app.ainvoke(initial_state)
+
+    # 5. Return the LLM's structured output to the frontend
+    return {
+        "status": "success",
+        "headline": final_state["replan_status_message"],
+        "updated_mastery": final_state["new_mastery_score"],
+        "roadmap": final_state["replan_output"]
+    }

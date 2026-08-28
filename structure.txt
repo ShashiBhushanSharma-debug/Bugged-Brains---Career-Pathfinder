@@ -1,0 +1,158 @@
+.
+├── backend
+│   ├── app
+│   │   ├── api
+│   │   │   ├── __init__.py
+│   │   │   ├── router.py
+│   │   │   └── routes
+│   │   │       ├── __init__.py
+│   │   │       ├── learner.py
+│   │   │       ├── learning_history.py
+│   │   │       ├── onboarding.py
+│   │   │       ├── recommendations.py
+│   │   │       ├── resources.py
+│   │   │       └── skills.py
+│   │   ├── config.py
+│   │   ├── database
+│   │   │   ├── connection.py
+│   │   │   ├── __init__.py
+│   │   │   └── repositories
+│   │   │       ├── careers_repo.py
+│   │   │       ├── __init__.py
+│   │   │       ├── learner_repo.py
+│   │   │       ├── learning_history_repo.py
+│   │   │       ├── recommendations_repo.py
+│   │   │       ├── resources_repo.py
+│   │   │       └── skills_repo.py
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── schemas
+│   │   │   ├── __init__.py
+│   │   │   ├── learner.py
+│   │   │   ├── learning_history.py
+│   │   │   ├── onboarding.py
+│   │   │   ├── recommendations.py
+│   │   │   ├── resources.py
+│   │   │   └── skills.py
+│   │   └── services
+│   │       ├── __init__.py
+│   │       ├── recommendation_engine.py
+│   │       └── skills_analysis.py
+│   ├── pyproject.toml
+│   ├── README.md
+│   ├── requirements.txt
+│   └── tests
+│       ├── conftest.py
+│       ├── __init__.py
+│       ├── test_connection.py
+│       ├── test_learner.py
+│       ├── test_recommendation_engine.py
+│       ├── test_resources.py
+│       └── test_skills.py
+├── Bugged-Brains---Career-Pathfinder.-Ai-work-main
+│   ├── adaptive_engine.py
+│   ├── assistant.py
+│   ├── demo_runner.py
+│   ├── LICENSE
+│   ├── path_explainer.py
+│   ├── README.md
+│   └── schemas.py
+├── database
+│   ├── migrations
+│   │   ├── 001_initial_schema.sql
+│   │   └── 002_seed_data.sql
+│   └── README.md
+├── FINAL_CHANGES.md
+├── frontend
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── public
+│   │   ├── favicon.svg
+│   │   └── icons.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── assets
+│   │   │   ├── hero.png
+│   │   │   ├── react.svg
+│   │   │   └── vite.svg
+│   │   ├── components
+│   │   │   ├── AppLayout.jsx
+│   │   │   ├── AssessmentCard.css
+│   │   │   ├── AssessmentCard.jsx
+│   │   │   ├── Button.jsx
+│   │   │   ├── CourseCard.css
+│   │   │   ├── CourseCard.jsx
+│   │   │   ├── Drawer.css
+│   │   │   ├── Drawer.jsx
+│   │   │   ├── EmptyState.css
+│   │   │   ├── EmptyState.jsx
+│   │   │   ├── LoadingState.css
+│   │   │   ├── LoadingState.jsx
+│   │   │   ├── Modal.css
+│   │   │   ├── Modal.jsx
+│   │   │   ├── Navbar.css
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── ProgressRing.jsx
+│   │   │   ├── ResourceCard.css
+│   │   │   ├── ResourceCard.jsx
+│   │   │   ├── RoadmapConnector.css
+│   │   │   ├── RoadmapConnector.jsx
+│   │   │   ├── Roadmap.css
+│   │   │   ├── Roadmap.jsx
+│   │   │   ├── RoadmapNode.css
+│   │   │   ├── RoadmapNode.jsx
+│   │   │   ├── Sidebar.css
+│   │   │   ├── Sidebar.jsx
+│   │   │   ├── SkillBadge.css
+│   │   │   ├── SkillBadge.jsx
+│   │   │   ├── SkillCard.css
+│   │   │   ├── SkillCard.jsx
+│   │   │   ├── StatCard.css
+│   │   │   ├── StatCard.jsx
+│   │   │   ├── Toast.css
+│   │   │   ├── Toast.jsx
+│   │   │   ├── WhyThis.css
+│   │   │   └── WhyThis.jsx
+│   │   ├── data
+│   │   │   ├── assessmentData.js
+│   │   │   ├── coursesData.js
+│   │   │   ├── roadmapData.js
+│   │   │   ├── skillsData.js
+│   │   │   └── userData.js
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   └── pages
+│   │       ├── AdaptiveReplanning.css
+│   │       ├── AdaptiveReplanning.jsx
+│   │       ├── Assessment.css
+│   │       ├── Assessment.jsx
+│   │       ├── Assessments.css
+│   │       ├── Assessments.jsx
+│   │       ├── Dashboard.css
+│   │       ├── Dashboard.jsx
+│   │       ├── Landing.css
+│   │       ├── Landing.jsx
+│   │       ├── LearningHub.css
+│   │       ├── LearningHub.jsx
+│   │       ├── Onboarding.css
+│   │       ├── Onboarding.jsx
+│   │       ├── Profile.css
+│   │       ├── Profile.jsx
+│   │       ├── Progress.css
+│   │       ├── Progress.jsx
+│   │       ├── Resources.css
+│   │       ├── Resources.jsx
+│   │       ├── RoadmapPage.css
+│   │       ├── RoadmapPage.jsx
+│   │       ├── Settings.css
+│   │       ├── Settings.jsx
+│   │       ├── SkillAnalysis.css
+│   │       └── SkillAnalysis.jsx
+│   └── vite.config.js
+└── structure.txt
+
+20 directories, 136 files
