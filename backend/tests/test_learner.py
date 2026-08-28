@@ -5,6 +5,7 @@ Tests for GET /api/me and PATCH /api/me.
 Uses seeded learner u_1001.
 """
 import pytest
+from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
@@ -52,3 +53,72 @@ async def test_patch_me(client, dev_learner_id):
 
     # Restore original value
     await client.patch("/api/me", json={"weekly_learning_hours": original["weekly_learning_hours"]})
+
+# Test for the replanning of the overall career path finder
+
+@pytest.mark.asyncio
+async def test_post_me_replan_success(client, dev_learner_id):
+    """
+    POST /api/me/replan executes the BKT math and dynamic replanner,
+    returning a structured response with headline, mastery, and roadmap steps.
+    """
+    # Sample mock response matching the LangGraph output schema
+    mock_final_state = {
+        "replan_status_message": "Targeted recovery step injected for React.",
+        "new_mastery_score": 0.4521,
+        "replan_output": {
+            "headline": "Targeted recovery step injected for React.",
+            "reasoning": "Score was below threshold; reinforcing core concepts.",
+            "updated_steps": [
+                {
+                    "node_id": "remedial_sk_react",
+                    "title": "Targeted Recovery: React Core Foundations",
+                    "type": "skill",
+                    "target_skill_id": "sk_react",
+                    "difficulty": "Beginner",
+                    "estimated_hours": 4,
+                    "action_type": "injected_remedial",
+                    "rationale": {
+                        "why_now": "Reinforcing core mechanics before proceeding.",
+                        "skill_gap_addressed": "React fundamentals gap."
+                    }
+                }
+            ]
+        }
+    }
+
+    # Patch adaptive_graph_app.ainvoke so tests do not rely on external Cerebras network calls
+    with patch("app.api.routes.learner.adaptive_graph_app.ainvoke", new_callable=AsyncMock) as mock_invoke:
+        mock_invoke.return_value = mock_final_state
+
+        payload = {
+            "step_id": "as_react_basics",
+            "target_skill_id": "sk_react",
+            "score_percentage": 50.0,
+            "user_feedback": "too fast"
+        }
+
+        response = await client.post("/api/me/replan", json=payload)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["headline"] == "Targeted recovery step injected for React."
+        assert data["updated_mastery"] == 0.4521
+        assert "roadmap" in data
+        assert len(data["roadmap"]["updated_steps"]) == 1
+        assert data["roadmap"]["updated_steps"][0]["action_type"] == "injected_remedial"
+
+
+@pytest.mark.asyncio
+async def test_post_me_replan_validation_error(client):
+    """
+    POST /api/me/replan rejects invalid signals missing required fields.
+    """
+    invalid_payload = {
+        "step_id": "as_react_basics"
+        # Missing required target_skill_id and score_percentage
+    }
+
+    response = await client.post("/api/me/replan", json=invalid_payload)
+    assert response.status_code == 422  # Unprocessable Entity

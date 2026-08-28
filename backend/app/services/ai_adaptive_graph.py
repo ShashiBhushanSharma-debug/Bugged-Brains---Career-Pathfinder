@@ -1,10 +1,11 @@
 import json
+import os
 import logging
 from typing import Dict, List, Optional, Any, TypedDict
 import asyncpg
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, END
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,13 @@ async def llm_dynamic_replanner_node(state: AdaptiveGraphState) -> Dict[str, Any
     """
     Step 3: Calls LLM to dynamically restructure the path, prune completed steps, and insert remedial nodes.
     """
-    llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0.2)
+    # Inside llm_dynamic_replanner_node:
+    llm = ChatOpenAI(
+        base_url="https://api.cerebras.ai/v1",
+        model="gemma-4-31b", 
+        temperature=0.2,
+        api_key=os.environ.get("CEREBRAS_API_KEY") 
+    )
     structured_llm = llm.with_structured_output(StructuredReplanOutput)
 
     signal = state.get("assessment_signal", {})

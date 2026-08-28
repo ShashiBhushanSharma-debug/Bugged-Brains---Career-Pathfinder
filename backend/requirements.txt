@@ -12,6 +12,6 @@ anyio==4.4.0
 # GenAI & Graph AI Stack
 langgraph>=0.2.0
 langchain-core>=0.3.0
-langchain-groq>=0.1.0
+langchain-openai>=0.1.0
 pgvector>=0.3.0
 numpy>=1.26.0
