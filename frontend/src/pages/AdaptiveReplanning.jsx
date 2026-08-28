@@ -1,76 +1,94 @@
-import { useNavigate } from 'react-router-dom';
-import { Sparkles, Plus, ArrowRightLeft, ArrowRight } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Sparkles, Plus, ArrowRight, CheckCircle2 } from 'lucide-react';
 import Button from '../components/Button';
 import RoadmapConnector from '../components/RoadmapConnector';
-import {
-  previousRoadmapPath, previousRoadmapLabels, updatedRoadmapPath, roadmapNodes, replanReason,
-} from '../data/roadmapData';
+import EmptyState from '../components/EmptyState';
 import './AdaptiveReplanning.css';
-
-const nodeLabel = (id) => roadmapNodes.find((n) => n.id === id)?.title ?? previousRoadmapLabels[id] ?? id;
-const isNewNode = (id) => !previousRoadmapPath.includes(id);
 
 export default function AdaptiveReplanning() {
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract the LangGraph AI response passed from the Assessment page
+  const aiResponse = location.state?.aiResponse;
+  const roadmapData = aiResponse?.roadmap;
+
+  // Fallback if the user navigates here directly without taking an assessment
+  if (!roadmapData) {
+    return (
+      <div className="adaptive-page">
+        <EmptyState
+          title="No recent adaptations"
+          description="Your roadmap is currently up to date. Take an assessment to trigger AI replanning."
+          action={<Button onClick={() => navigate('/assessments')}>Go to Assessments</Button>}
+        />
+      </div>
+    );
+  }
+
+  // Filter out normal 'retained' steps to explicitly show the user what the AI altered
+  const changes = roadmapData.updated_steps
+    .filter((step) => step.action_type !== 'retained')
+    .map((step) => ({
+      type: step.action_type === 'injected_remedial' ? 'added' : step.action_type,
+      label: step.title,
+      detail: step.rationale.why_now
+    }));
 
   return (
     <div className="adaptive-page">
       <div className="adaptive-head">
-        <span className="adaptive-badge"><Sparkles size={14} /> Adaptive re-planning</span>
-        <h1>{replanReason.headline}</h1>
-        <p className="section-lede">{replanReason.reason}</p>
-        <p className="data-label">Triggered by: {replanReason.triggeredBy}</p>
+        <span className="adaptive-badge"><Sparkles size={14} /> AI Adaptive Re-planning</span>
+        <h1>{roadmapData.headline || aiResponse.headline}</h1>
+        <p className="section-lede">{roadmapData.reasoning}</p>
+        <p className="data-label">
+          Target Mastery Updated: {(aiResponse.updated_mastery * 100).toFixed(0)}%
+        </p>
       </div>
 
       <div className="adaptive-compare">
-        <div className="adaptive-path-col">
-          <span className="eyebrow">Previously</span>
+        {/* We focus entirely on the new AI-generated path rather than a side-by-side */}
+        <div className="adaptive-path-col" style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+          <span className="eyebrow">Your Updated Learning Path</span>
           <div className="adaptive-path">
-            {previousRoadmapPath.map((id, i) => (
-              <div key={id}>
-                <div className="adaptive-node old">{nodeLabel(id)}</div>
-                {i < previousRoadmapPath.length - 1 && <RoadmapConnector />}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="adaptive-compare-icon">
-          <ArrowRightLeft size={20} strokeWidth={1.75} />
-        </div>
-
-        <div className="adaptive-path-col">
-          <span className="eyebrow">Updated</span>
-          <div className="adaptive-path">
-            {updatedRoadmapPath.map((id, i) => (
-              <div key={id}>
-                <div className={`adaptive-node ${isNewNode(id) ? 'new' : ''}`}>
-                  {isNewNode(id) && <Plus size={12} strokeWidth={2.5} />}
-                  {nodeLabel(id)}
+            {roadmapData.updated_steps.map((step, i) => {
+              const isNewNode = step.action_type === 'injected_remedial' || step.action_type === 'added';
+              return (
+                <div key={step.node_id}>
+                  <div className={`adaptive-node ${isNewNode ? 'new' : ''}`}>
+                    {isNewNode ? <Plus size={14} strokeWidth={2.5} /> : <CheckCircle2 size={14} />}
+                    {step.title}
+                  </div>
+                  {i < roadmapData.updated_steps.length - 1 && (
+                    <RoadmapConnector variant={
+                      roadmapData.updated_steps[i + 1].action_type === 'injected_remedial' ? 'added' : 'default'
+                    } />
+                  )}
                 </div>
-                {i < updatedRoadmapPath.length - 1 && (
-                  <RoadmapConnector variant={isNewNode(updatedRoadmapPath[i + 1]) ? 'added' : 'default'} />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
-      <div className="adaptive-changes card">
-        <span className="eyebrow">What changed</span>
-        <ul className="adaptive-changes-list">
-          {replanReason.changes.map((c) => (
-            <li key={c.label}>
-              <span className={`adaptive-change-tag ${c.type}`}>{c.type}</span>
-              <div>
-                <strong>{c.label}</strong>
-                <p>{c.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {changes.length > 0 && (
+        <div className="adaptive-changes card">
+          <span className="eyebrow">What changed and why</span>
+          <ul className="adaptive-changes-list">
+            {changes.map((c, index) => (
+              <li key={`${c.label}-${index}`}>
+                <span className={`adaptive-change-tag ${c.type}`}>
+                  {c.type === 'injected_remedial' ? 'Targeted Review' : c.type}
+                </span>
+                <div>
+                  <strong>{c.label}</strong>
+                  <p>{c.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="adaptive-actions">
         <Button icon={ArrowRight} onClick={() => navigate('/roadmap')}>View Full Roadmap</Button>
