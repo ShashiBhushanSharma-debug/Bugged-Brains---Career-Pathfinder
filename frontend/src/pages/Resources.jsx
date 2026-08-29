@@ -5,17 +5,55 @@ import Drawer from '../components/Drawer';
 import WhyThis from '../components/WhyThis';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
-import { resources } from '../data/coursesData';
+import LoadingState from '../components/LoadingState';
+import { useResources } from '../hooks/useResources';
+import { useRecommendations } from '../hooks/useRecommendations';
+import { useLearningHistory } from '../hooks/useLearningHistory';
 import './Resources.css';
-
-const SKILLS = ['all', ...new Set(resources.map((r) => r.skill))];
-const DIFFICULTIES = ['all', ...new Set(resources.map((r) => r.difficulty))];
 
 export default function Resources() {
   const [skill, setSkill] = useState('all');
   const [difficulty, setDifficulty] = useState('all');
   const [onlyRecommended, setOnlyRecommended] = useState(false);
   const [activeResource, setActiveResource] = useState(null);
+
+  const { data: resourceData, loading: resLoading, error: resError } = useResources();
+  const { data: recData } = useRecommendations();
+  const { data: historyData } = useLearningHistory();
+
+  // Merge per-learner status/progress/recommended onto catalog resources
+  const resources = useMemo(() => {
+    if (!resourceData?.resources) return [];
+    const historyMap = historyData?.historyByResourceId ?? {};
+    const recIds = recData?.recommendedIds ?? new Set();
+    const recByResourceId = {};
+    (recData?.recommendations ?? []).forEach((r) => {
+      recByResourceId[r.resource_id] = r;
+    });
+
+    return resourceData.resources.map((r) => {
+      const hist = historyMap[r.id];
+      const rec = recByResourceId[r.id];
+      return {
+        ...r,
+        status: hist?.status ?? 'not-started',
+        progress: hist?.progress ?? 0,
+        recommended: recIds.has(r.id),
+        // Use engine reasoning if available, else template
+        whyRecommended: rec?.reasoning ?? r.whyRecommended ?? '',
+        duration: r.duration_text ?? r.duration ?? '',
+      };
+    });
+  }, [resourceData, recData, historyData]);
+
+  const SKILLS = useMemo(
+    () => ['all', ...new Set(resources.map((r) => r.skill).filter(Boolean))],
+    [resources]
+  );
+  const DIFFICULTIES = useMemo(
+    () => ['all', ...new Set(resources.map((r) => r.difficulty).filter(Boolean))],
+    [resources]
+  );
 
   const filtered = useMemo(() => {
     return resources.filter((r) => {
@@ -24,7 +62,10 @@ export default function Resources() {
       if (onlyRecommended && !r.recommended) return false;
       return true;
     });
-  }, [skill, difficulty, onlyRecommended]);
+  }, [resources, skill, difficulty, onlyRecommended]);
+
+  if (resLoading) return <LoadingState />;
+  if (resError) return <p className="section-lede" style={{ padding: '2rem' }}>Could not load resources: {resError}</p>;
 
   return (
     <div className="resources-page">
@@ -78,7 +119,7 @@ export default function Resources() {
               <span><Clock size={14} strokeWidth={2} /> {activeResource.duration}</span>
               <span><BarChart3 size={14} strokeWidth={2} /> {activeResource.difficulty}</span>
             </div>
-            <WhyThis reasons={[activeResource.whyRecommended]} />
+            <WhyThis reasons={[activeResource.whyRecommended].filter(Boolean)} />
             <Button>{activeResource.status === 'completed' ? 'Review again' : 'Start Learning'}</Button>
           </>
         )}

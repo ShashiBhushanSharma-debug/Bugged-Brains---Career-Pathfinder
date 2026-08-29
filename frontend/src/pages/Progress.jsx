@@ -1,15 +1,26 @@
 import { Flame, GraduationCap, Clock, ClipboardCheck, Hammer, TrendingUp } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import ProgressRing from '../components/ProgressRing';
-import { currentUser } from '../data/userData';
+import LoadingState from '../components/LoadingState';
+import { useLearner } from '../hooks/useLearner';
+import { useSkillAnalysis } from '../hooks/useSkillAnalysis';
+// roadmapData is intentionally kept — no GET /api/roadmap endpoint exists yet.
 import { roadmapNodes } from '../data/roadmapData';
-import { skills } from '../data/skillsData';
 import './Progress.css';
 
 export default function ProgressPage() {
+  const { data: currentUser, loading: userLoading } = useLearner();
+  const { data: skillData, loading: skillLoading } = useSkillAnalysis();
+
+  // roadmap stats from mock (no API yet)
   const skillsMastered = roadmapNodes.filter((n) => n.status === 'completed' && n.type === 'skill').length;
   const projectsDone = roadmapNodes.filter((n) => n.status === 'completed' && n.type === 'project').length;
-  const assessmentsDone = 1;
+  const assessmentsDone = 1; // static until GET /api/assessments is implemented
+
+  if (userLoading || skillLoading) return <LoadingState />;
+  if (!currentUser) return null;
+
+  const skills = skillData?.skills ?? [];
 
   return (
     <div className="progress-page">

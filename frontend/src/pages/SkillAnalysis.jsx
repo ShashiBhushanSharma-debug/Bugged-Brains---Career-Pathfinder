@@ -6,13 +6,20 @@ import SkillCard from '../components/SkillCard';
 import WhyThis from '../components/WhyThis';
 import Drawer from '../components/Drawer';
 import Button from '../components/Button';
-import { skills, skillCategories, targetRole } from '../data/skillsData';
-import { currentUser } from '../data/userData';
+import LoadingState from '../components/LoadingState';
+import { useSkillAnalysis } from '../hooks/useSkillAnalysis';
 import './SkillAnalysis.css';
 
 export default function SkillAnalysis() {
   const navigate = useNavigate();
   const [activeSkill, setActiveSkill] = useState(null);
+  const { data, loading, error } = useSkillAnalysis();
+
+  if (loading) return <LoadingState />;
+  if (error) return <p className="section-lede" style={{ padding: '2rem' }}>Could not load skill analysis: {error}</p>;
+  if (!data) return null;
+
+  const { categories, targetRole, careerReadiness } = data;
 
   return (
     <div className="skill-analysis">
@@ -23,12 +30,12 @@ export default function SkillAnalysis() {
           <p className="section-lede">{targetRole.description}</p>
         </div>
         <div className="skill-analysis-readiness card">
-          <ProgressRing value={currentUser.careerReadiness} sublabel="Readiness" size={92} />
+          <ProgressRing value={careerReadiness} sublabel="Readiness" size={92} />
         </div>
       </div>
 
-      {skillCategories.map((cat) => {
-        const catSkills = skills.filter((s) => s.category === cat.id);
+      {categories.map((cat) => {
+        const catSkills = cat.skills ?? [];
         if (!catSkills.length) return null;
         return (
           <section className="skill-analysis-section" key={cat.id}>
@@ -71,7 +78,7 @@ export default function SkillAnalysis() {
                 <span className="data-label">Target {activeSkill.required}%</span>
               </div>
             </div>
-            <WhyThis title="Gap detected because" reasons={activeSkill.reasoning} />
+            <WhyThis title="Gap detected because" reasons={activeSkill.reasoning ?? []} />
           </>
         )}
       </Drawer>

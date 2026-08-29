@@ -15,6 +15,7 @@ from app.database.connection import get_pool
 from app.database.repositories import learner_repo, learning_history_repo
 from app.schemas.learner import LearnerProfileResponse, LearnerProfileUpdate
 from app.schemas.learning_history import ActivityLogItem
+from typing import Optional
 from pydantic import BaseModel
 from app.services.ai_adaptive_graph import adaptive_graph_app
 
@@ -32,7 +33,7 @@ class AssessmentSignal(BaseModel):
     step_id: str
     target_skill_id: str
     score_percentage: float
-    user_feedback: str | None = None
+    user_feedback: Optional[str] = None
 
 @router.get(
     "/me",

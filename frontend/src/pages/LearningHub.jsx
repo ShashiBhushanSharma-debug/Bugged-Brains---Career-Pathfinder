@@ -2,21 +2,65 @@ import { useMemo, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import CourseCard from '../components/CourseCard';
 import EmptyState from '../components/EmptyState';
-import { resources, resourceTypes } from '../data/coursesData';
+import LoadingState from '../components/LoadingState';
+import { useResources } from '../hooks/useResources';
+import { useRecommendations } from '../hooks/useRecommendations';
+import { useLearningHistory } from '../hooks/useLearningHistory';
 import './LearningHub.css';
 
-const FILTERS = ['all', ...resourceTypes];
+const RESOURCE_TYPES = ['course', 'video', 'article', 'documentation', 'project', 'practice'];
+const FILTERS = ['all', ...RESOURCE_TYPES];
 
 export default function LearningHub() {
   const [filter, setFilter] = useState('all');
 
-  const inProgress = resources.filter((r) => r.status === 'in-progress');
-  const recommended = resources.filter((r) => r.recommended && r.status !== 'completed');
+  const { data: resourceData, loading: resLoading } = useResources();
+  const { data: recData } = useRecommendations();
+  const { data: historyData } = useLearningHistory();
+
+  // Merge catalog + per-learner status + recommended flag
+  const resources = useMemo(() => {
+    if (!resourceData?.resources) return [];
+    const historyMap = historyData?.historyByResourceId ?? {};
+    const recIds = recData?.recommendedIds ?? new Set();
+    const recByResourceId = {};
+    (recData?.recommendations ?? []).forEach((r) => {
+      recByResourceId[r.resource_id] = r;
+    });
+
+    return resourceData.resources.map((r) => {
+      const hist = historyMap[r.id];
+      const rec = recByResourceId[r.id];
+      return {
+        ...r,
+        status: hist?.status ?? 'not-started',
+        progress: hist?.progress ?? 0,
+        recommended: recIds.has(r.id),
+        whyRecommended: rec?.reasoning ?? r.whyRecommended ?? '',
+        duration: r.duration_text ?? r.duration ?? '',
+        skill: r.primary_skill_name ?? r.skill ?? '',
+      };
+    });
+  }, [resourceData, recData, historyData]);
+
+  // "Continue learning" — in-progress items from learning history merged with catalog
+  const inProgress = useMemo(
+    () => resources.filter((r) => r.status === 'in-progress'),
+    [resources]
+  );
+
+  // "Recommended for you" — engine recommendations, excluding completed
+  const recommended = useMemo(
+    () => resources.filter((r) => r.recommended && r.status !== 'completed'),
+    [resources]
+  );
 
   const filtered = useMemo(
     () => (filter === 'all' ? resources : resources.filter((r) => r.type === filter)),
-    [filter]
+    [resources, filter]
   );
+
+  if (resLoading) return <LoadingState />;
 
   return (
     <div className="learning-hub">
