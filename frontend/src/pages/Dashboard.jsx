@@ -4,7 +4,11 @@ import ProgressRing from '../components/ProgressRing';
 import StatCard from '../components/StatCard';
 import WhyThis from '../components/WhyThis';
 import Button from '../components/Button';
-import { currentUser, recentActivity } from '../data/userData';
+import LoadingState from '../components/LoadingState';
+import { useLearner } from '../hooks/useLearner';
+import { useActivity } from '../hooks/useActivity';
+// roadmapData and assessmentData are intentionally kept as mock —
+// no GET /api/roadmap or GET /api/assessments endpoint exists yet.
 import { roadmapNodes, replanReason } from '../data/roadmapData';
 import { upcomingAssessment } from '../data/assessmentData';
 import './Dashboard.css';
@@ -19,10 +23,17 @@ function timeAgo(iso) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { data: currentUser, loading: userLoading, error: userError } = useLearner();
+  const { data: recentActivity, loading: actLoading } = useActivity();
+
   const currentNode = roadmapNodes.find((n) => n.status === 'current');
   const skillsMastered = roadmapNodes.filter((n) => n.status === 'completed' && n.type === 'skill').length;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  if (userLoading) return <LoadingState />;
+  if (userError) return <p className="section-lede" style={{ padding: '2rem' }}>Could not load profile: {userError}</p>;
+  if (!currentUser) return null;
 
   return (
     <div className="dashboard">
@@ -73,7 +84,7 @@ export default function Dashboard() {
         <div className="dashboard-main-col">
           <section className="card">
             <span className="eyebrow">Current focus</span>
-            <h2 className="dashboard-focus-title">{currentNode?.title ?? currentUser.currentFocus.label}</h2>
+            <h2 className="dashboard-focus-title">{currentNode?.title ?? currentUser.currentFocus?.label ?? 'Your roadmap'}</h2>
             <p className="section-lede">{currentNode?.description}</p>
             <Button size="sm" onClick={() => navigate('/learn')}>Continue learning</Button>
           </section>
@@ -97,14 +108,18 @@ export default function Dashboard() {
         <aside className="dashboard-side-col">
           <section className="card">
             <span className="eyebrow">Recent activity</span>
-            <ul className="dashboard-activity-list">
-              {recentActivity.map((a) => (
-                <li key={a.id}>
-                  <span className="dashboard-activity-label">{a.label}</span>
-                  <span className="data-label">{a.meta} · {timeAgo(a.timestamp)}</span>
-                </li>
-              ))}
-            </ul>
+            {actLoading ? (
+              <p className="data-label" style={{ padding: '0.5rem 0' }}>Loading…</p>
+            ) : (
+              <ul className="dashboard-activity-list">
+                {(recentActivity ?? []).map((a) => (
+                  <li key={a.id}>
+                    <span className="dashboard-activity-label">{a.label}</span>
+                    <span className="data-label">{a.meta} · {timeAgo(a.timestamp)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </aside>
       </div>

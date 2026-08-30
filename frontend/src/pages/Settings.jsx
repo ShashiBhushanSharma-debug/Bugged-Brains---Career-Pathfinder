@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
-import { currentUser } from '../data/userData';
+import LoadingState from '../components/LoadingState';
+import { useLearner } from '../hooks/useLearner';
+import { apiFetch } from '../api/client';
 import './Settings.css';
 
 const NOTIF_LABELS = {
@@ -11,26 +13,46 @@ const NOTIF_LABELS = {
   productNews: 'Product news',
 };
 
-export default function Settings() {
+// Inner form: receives pre-loaded currentUser as a prop so useState can
+// initialize directly from it — avoids setState-inside-useEffect pattern.
+function SettingsForm({ currentUser }) {
   const showToast = useToast();
-  const [name, setName] = useState(currentUser.name);
-  const [email, setEmail] = useState('alex.rivera@example.com');
-  const [notifications, setNotifications] = useState(currentUser.notificationSettings);
-  const [pace, setPace] = useState(currentUser.learningPreferences.pace);
-  const [difficulty, setDifficulty] = useState(currentUser.learningPreferences.difficulty);
+  const prefs = currentUser.learningPreferences ?? {};
+
+  const [name, setName] = useState(currentUser.name ?? '');
+  const [email] = useState('alex.rivera@example.com'); // no email field in API yet
+  const [notifications, setNotifications] = useState(currentUser.notificationSettings ?? {});
+  const [pace, setPace] = useState(prefs.pace ?? '');
+  const [difficulty, setDifficulty] = useState(prefs.difficulty ?? '');
+  const [saving, setSaving] = useState(false);
 
   const toggleNotif = (key) => setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    showToast('Settings saved', { type: 'success' });
+    setSaving(true);
+    try {
+      await apiFetch('/api/me', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name,
+          notification_settings: notifications,
+          learning_preferences: { ...prefs, pace, difficulty },
+        }),
+      });
+      showToast('Settings saved', { type: 'success' });
+    } catch (err) {
+      showToast(`Could not save: ${err.message}`, { type: 'error' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <form className="settings-page" onSubmit={handleSave}>
       <div>
         <span className="eyebrow">Settings</span>
-        <h1>Account & preferences</h1>
+        <h1>Account &amp; preferences</h1>
       </div>
 
       <section className="card">
@@ -41,7 +63,7 @@ export default function Settings() {
         </div>
         <div className="settings-field">
           <label htmlFor="email">Email</label>
-          <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input id="email" type="email" value={email} readOnly />
         </div>
       </section>
 
@@ -81,16 +103,27 @@ export default function Settings() {
         <div className="settings-toggle-list">
           {Object.entries(notifications).map(([key, value]) => (
             <label className="settings-toggle-row" key={key}>
-              <span>{NOTIF_LABELS[key]}</span>
-              <input type="checkbox" checked={value} onChange={() => toggleNotif(key)} />
+              <span>{NOTIF_LABELS[key] ?? key}</span>
+              <input type="checkbox" checked={!!value} onChange={() => toggleNotif(key)} />
             </label>
           ))}
         </div>
       </section>
 
       <div className="settings-actions">
-        <Button type="submit">Save changes</Button>
+        <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</Button>
       </div>
     </form>
   );
+}
+
+// Outer shell: handles loading/error; renders SettingsForm once data is ready.
+export default function Settings() {
+  const { data: currentUser, loading, error } = useLearner();
+
+  if (loading) return <LoadingState />;
+  if (error) return <p className="section-lede" style={{ padding: '2rem' }}>Could not load settings: {error}</p>;
+  if (!currentUser) return null;
+
+  return <SettingsForm currentUser={currentUser} />;
 }

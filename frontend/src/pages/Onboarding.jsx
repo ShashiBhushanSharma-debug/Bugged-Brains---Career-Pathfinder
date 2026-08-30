@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Search, X, Check } from 'lucide-react';
 import Button from '../components/Button';
+import { apiFetch } from '../api/client';
 import './Onboarding.css';
 
 const STEPS = ['Goal', 'Current Skills', 'Interests', 'Experience', 'Learning History', 'Preferences'];
@@ -35,6 +36,18 @@ const LEARNING_STYLES = [
 export default function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Catalog lookups (loaded once)
+  const [skillCatalog, setSkillCatalog] = useState([]);   // [{ id, name }]
+  const [careerCatalog, setCareerCatalog] = useState([]); // [{ id, title }]
+
+  useEffect(() => {
+    // Load skill and career catalogs in parallel to build name->id maps
+    apiFetch('/api/skills').then((items) => setSkillCatalog(items ?? [])).catch(() => {});
+    apiFetch('/api/careers').then((items) => setCareerCatalog(items ?? [])).catch(() => {});
+  }, []);
 
   const [targetRole, setTargetRole] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
@@ -76,9 +89,68 @@ export default function Onboarding() {
     return true;
   };
 
+  // Build skill_id lookup from catalog; fall back to sanitised name if not found
+  const resolveSkillId = (name) => {
+    const match = skillCatalog.find(
+      (s) => s.name?.toLowerCase() === name.toLowerCase()
+    );
+    return match?.id ?? null;
+  };
+
+  // Build career_id lookup from catalog
+  const resolveCareerIdByTitle = (title) => {
+    const match = careerCatalog.find(
+      (c) => c.title?.toLowerCase() === title.toLowerCase()
+    );
+    return match?.id ?? null;
+  };
+
+  const handleFinalSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const skillsPayload = selectedSkills
+        .map((s) => ({ skill_id: resolveSkillId(s.name), proficiency_score: s.proficiency }))
+        .filter((s) => s.skill_id !== null); // only send skills we have IDs for
+
+      const priorLearning = historyItems.map((title) => ({ title, type: 'course' }));
+
+      const experienceLabelMap = {
+        new: 'Beginner',
+        some: 'Beginner–Intermediate',
+        working: 'Intermediate',
+        advancing: 'Intermediate–Advanced',
+      };
+
+      await apiFetch('/api/onboarding', {
+        method: 'POST',
+        body: JSON.stringify({
+          learner_id: 'u_1001', // dev learner — replaced by auth.uid() in Phase 3 (FC-006)
+          name: targetRole,     // best available name placeholder until auth provides real name
+          first_name: '',
+          target_career_id: resolveCareerIdByTitle(targetRole),
+          current_level: experienceLabelMap[experienceLevel] ?? experienceLevel,
+          weekly_learning_hours: weeklyHours,
+          interests,
+          learning_style: learningStyle,
+          learning_preferences: { pace: 'Steady (3–5 sessions / week)', difficulty: 'Push me slightly beyond current level' },
+          skills: skillsPayload,
+          prior_learning: priorLearning,
+        }),
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      setSubmitError(err.message ?? 'Could not save your profile. Please try again.');
+      setSubmitting(false);
+    }
+  };
+
   const goNext = () => {
-    if (step < STEPS.length - 1) setStep((s) => s + 1);
-    else navigate('/analysis');
+    if (step < STEPS.length - 1) {
+      setStep((s) => s + 1);
+    } else {
+      handleFinalSubmit();
+    }
   };
   const goBack = () => (step > 0 ? setStep((s) => s - 1) : navigate('/'));
 
@@ -257,16 +329,21 @@ export default function Onboarding() {
                 </button>
               ))}
             </div>
+            {submitError && (
+              <p className="section-lede" style={{ color: 'var(--rust, #c0392b)', marginTop: '1rem' }}>
+                {submitError}
+              </p>
+            )}
           </section>
         )}
       </div>
 
       <footer className="onboarding-footer">
-        <Button variant="ghost" icon={ArrowLeft} iconPosition="left" onClick={goBack}>
+        <Button variant="ghost" icon={ArrowLeft} iconPosition="left" onClick={goBack} disabled={submitting}>
           {step === 0 ? 'Back to home' : 'Back'}
         </Button>
-        <Button icon={ArrowRight} onClick={goNext} disabled={!canContinue()}>
-          {step === STEPS.length - 1 ? 'Generate My Learning Path' : 'Continue'}
+        <Button icon={ArrowRight} onClick={goNext} disabled={!canContinue() || submitting}>
+          {submitting ? 'Saving…' : step === STEPS.length - 1 ? 'Generate My Learning Path' : 'Continue'}
         </Button>
       </footer>
     </div>
