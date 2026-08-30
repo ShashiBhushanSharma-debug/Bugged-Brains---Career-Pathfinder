@@ -1,0 +1,235 @@
+/* ================================================================
+   AUTH PAGES — Login, Signup, Forgot Password
+   Reuses the existing Career Pathfinder design system identically.
+   Layout mirrors the Onboarding page: centred card, logo header.
+   ================================================================ */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+/* ---- Header (same as Onboarding) ---- */
+.auth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--line);
+}
+
+.auth-header-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.auth-header-logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Centred card ---- */
+.auth-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7) var(--space-6);
+}
+
+.auth-card h1 {
+  font-size: 26px;
+  margin-bottom: var(--space-1);
+}
+
+.auth-card .auth-subtitle {
+  font-family: var(--font-body);
+  color: var(--ink-soft);
+  font-size: 15px;
+  margin-bottom: var(--space-6);
+}
+
+/* ---- Form ---- */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.auth-field label {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.auth-field input {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s var(--ease);
+}
+
+.auth-field input:focus {
+  border-color: var(--slate);
+}
+
+.auth-field input::placeholder {
+  color: var(--ink-faint);
+}
+
+/* ---- Error ---- */
+.auth-error {
+  background: var(--rust-soft);
+  color: var(--rust-ink);
+  font-size: 13.5px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--rust);
+}
+
+/* ---- Success ---- */
+.auth-success {
+  background: var(--pine-soft);
+  color: var(--pine-ink);
+  font-size: 13.5px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pine);
+}
+
+/* ---- Divider ("or") ---- */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-divider span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+/* ---- Google OAuth button ---- */
+.auth-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 12px 22px;
+  background: var(--paper-raised);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.auth-google-btn:hover {
+  border-color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-google-btn:active {
+  transform: translateY(1px);
+}
+
+.auth-google-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ---- Footer links ---- */
+.auth-footer {
+  text-align: center;
+  margin-top: var(--space-5);
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.auth-footer a {
+  color: var(--slate);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  color: var(--ink);
+}
+
+.auth-forgot-link {
+  font-size: 13px;
+  color: var(--ink-faint);
+  text-align: right;
+  display: block;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.auth-forgot-link:hover {
+  color: var(--ink);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 560px) {
+  .auth-card {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .auth-header {
+    padding: var(--space-3) var(--space-4);
+  }
+}

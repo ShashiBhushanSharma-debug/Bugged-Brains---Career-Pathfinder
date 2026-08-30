@@ -50,16 +50,17 @@ async def get_learning_history(
 
 
 async def get_history_item_by_id(
-    pool: asyncpg.Pool, item_id: str
+    pool: asyncpg.Pool, learner_id: str, item_id: str
 ) -> Optional[dict]:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
             SELECT id, learner_id, resource_id, title, type, status,
                    progress_pct, completed_at, created_at, updated_at
-            FROM learning_history WHERE id = $1
+            FROM learning_history WHERE id = $1 AND learner_id = $2
             """,
             item_id,
+            learner_id,
         )
         return dict(row) if row else None
 
@@ -122,10 +123,11 @@ async def create_history_item(
 
 async def update_history_item(
     pool: asyncpg.Pool,
+    learner_id: str,
     item_id: str,
     updates: dict,
 ) -> Optional[dict]:
-    """Update status and/or progress on an existing history item."""
+    """Update status and/or progress on an existing history item for the authenticated learner."""
     status = updates.get("status")
     progress_pct = updates.get("progress_pct")
 
@@ -133,17 +135,18 @@ async def update_history_item(
         row = await conn.fetchrow(
             """
             UPDATE learning_history SET
-                status       = COALESCE($2, status),
-                progress_pct = COALESCE($3, progress_pct),
+                status       = COALESCE($3, status),
+                progress_pct = COALESCE($4, progress_pct),
                 completed_at = CASE
-                    WHEN $2 = 'completed' THEN NOW()
+                    WHEN $3 = 'completed' THEN NOW()
                     ELSE completed_at
                 END,
                 updated_at   = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND learner_id = $2
             RETURNING *
             """,
             item_id,
+            learner_id,
             status,
             progress_pct,
         )

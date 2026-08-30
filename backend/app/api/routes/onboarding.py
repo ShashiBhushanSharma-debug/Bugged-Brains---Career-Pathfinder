@@ -10,10 +10,11 @@ Persists initial learner data collected by the frontend Onboarding page into:
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from asyncpg import Pool
 
 from app.database.connection import get_pool
+from app.api.auth import get_current_learner_id
 from app.database.repositories import learner_repo, skills_repo, learning_history_repo
 from app.schemas.onboarding import OnboardingRequest, OnboardingResponse
 
@@ -28,16 +29,23 @@ router = APIRouter(prefix="/api", tags=["Onboarding"])
     description=(
         "Accepts the full onboarding form submission and persists it into "
         "learner_profiles, learner_skills, and learning_history. "
-        "Idempotent — re-submitting with the same learner_id will upsert."
+        "The learner_id is derived from the authenticated Supabase user. "
+        "Idempotent — re-submitting will upsert."
     ),
 )
 async def submit_onboarding(
     body: OnboardingRequest,
+    request: Request,
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> OnboardingResponse:
+    # Strictly enforce authenticated identity from token when authenticated
+    is_authenticated = getattr(request.state, "is_authenticated", False)
+    target_learner_id = learner_id if is_authenticated else (body.learner_id or learner_id)
+
     # 1. Upsert learner profile
     profile_data = {
-        "id": body.learner_id,
+        "id": target_learner_id,
         "name": body.name,
         "first_name": body.first_name,
         "target_career_id": body.target_career_id,
@@ -48,6 +56,7 @@ async def submit_onboarding(
         "preferred_session_length": body.preferred_session_length,
         "learning_preferences": body.learning_preferences,
         "notification_settings": None,
+        "onboarding_completed": True,
     }
     try:
         await learner_repo.create_learner(pool, profile_data)
@@ -63,7 +72,7 @@ async def submit_onboarding(
         ]
         try:
             skills_saved = await skills_repo.bulk_upsert_learner_skills(
-                pool, body.learner_id, skill_dicts
+                pool, target_learner_id, skill_dicts
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save skills: {e}")
@@ -77,16 +86,52 @@ async def submit_onboarding(
         ]
         try:
             history_saved = await learning_history_repo.bulk_create_history(
-                pool, body.learner_id, history_items
+                pool, target_learner_id, history_items
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save learning history: {e}")
 
-    # 4. Log the onboarding activity
+    # 4. Initialize learner roadmap nodes if career is selected
+    if body.target_career_id:
+        try:
+            async with pool.acquire() as conn:
+                nodes = await conn.fetch(
+                    "SELECT id, skill_id, stage FROM roadmap_nodes WHERE career_id = $1 ORDER BY stage ASC",
+                    body.target_career_id
+                )
+                if nodes:
+                    user_skill_scores = {s.skill_id: s.proficiency_score for s in (body.skills or [])}
+                    first_uncompleted = False
+                    for node in nodes:
+                        n_id = node["id"]
+                        s_id = node["skill_id"]
+                        score = user_skill_scores.get(s_id, 0)
+                        if score >= 70:
+                            node_status = "completed"
+                        elif not first_uncompleted:
+                            node_status = "current"
+                            first_uncompleted = True
+                        elif score > 0:
+                            node_status = "recommended"
+                        else:
+                            node_status = "locked"
+
+                        await conn.execute(
+                            """
+                            INSERT INTO learner_roadmap_nodes (learner_id, node_id, status)
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (learner_id, node_id) DO UPDATE SET status = EXCLUDED.status
+                            """,
+                            target_learner_id, n_id, node_status
+                        )
+        except Exception:
+            pass  # Non-fatal if roadmap templates don't exist for a custom career
+
+    # 5. Log the onboarding activity
     try:
         await learning_history_repo.log_activity(
             pool,
-            learner_id=body.learner_id,
+            learner_id=target_learner_id,
             event_type="onboarding",
             label="Completed onboarding",
             meta=f"Target: {body.target_career_id or 'not set'}",
@@ -96,7 +141,7 @@ async def submit_onboarding(
 
     return OnboardingResponse(
         success=True,
-        learner_id=body.learner_id,
+        learner_id=target_learner_id,
         skills_saved=skills_saved,
         history_saved=history_saved,
         message=(

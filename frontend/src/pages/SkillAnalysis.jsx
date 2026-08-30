@@ -20,42 +20,61 @@ export default function SkillAnalysis() {
   if (!data) return null;
 
   const { categories, targetRole, careerReadiness } = data;
+  const hasCareer = Boolean(targetRole?.title);
+  const totalSkills = categories.reduce((sum, cat) => sum + (cat.skills?.length ?? 0), 0);
 
   return (
     <div className="skill-analysis">
       <div className="skill-analysis-head">
         <div>
-          <span className="eyebrow">Target role: {targetRole.title}</span>
+          <span className="eyebrow">
+            {hasCareer ? `Target role: ${targetRole.title}` : 'No target role selected'}
+          </span>
           <h1>Skill Gap Analysis</h1>
-          <p className="section-lede">{targetRole.description}</p>
+          <p className="section-lede">
+            {hasCareer
+              ? targetRole.description || `Required skills and current gaps for ${targetRole.title}.`
+              : 'Complete onboarding or set a target career in Profile to analyze your required skills and gaps.'}
+          </p>
         </div>
         <div className="skill-analysis-readiness card">
           <ProgressRing value={careerReadiness} sublabel="Readiness" size={92} />
         </div>
       </div>
 
-      {categories.map((cat) => {
-        const catSkills = cat.skills ?? [];
-        if (!catSkills.length) return null;
-        return (
-          <section className="skill-analysis-section" key={cat.id}>
-            <div className="skill-analysis-section-head">
-              <h2>{cat.label}</h2>
-              <p className="data-label">{cat.description}</p>
-            </div>
-            <div className="skill-analysis-grid">
-              {catSkills.map((skill) => (
-                <SkillCard key={skill.id} skill={skill} onClick={() => setActiveSkill(skill)} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {totalSkills === 0 ? (
+        <div className="card" style={{ padding: '2.5rem', textAlign: 'center', margin: '2rem 0' }}>
+          <p className="section-lede" style={{ marginBottom: '1.25rem' }}>
+            No skill proficiencies mapped yet. Complete onboarding to customize your learning path.
+          </p>
+          <Button onClick={() => navigate('/onboarding')}>Start Onboarding</Button>
+        </div>
+      ) : (
+        categories.map((cat) => {
+          const catSkills = cat.skills ?? [];
+          if (!catSkills.length) return null;
+          return (
+            <section className="skill-analysis-section" key={cat.id}>
+              <div className="skill-analysis-section-head">
+                <h2>{cat.label}</h2>
+                <p className="data-label">{cat.description}</p>
+              </div>
+              <div className="skill-analysis-grid">
+                {catSkills.map((skill) => (
+                  <SkillCard key={skill.id} skill={skill} onClick={() => setActiveSkill(skill)} />
+                ))}
+              </div>
+            </section>
+          );
+        })
+      )}
 
-      <div className="skill-analysis-cta">
-        <p>Ready to see how these skills sequence into a full path?</p>
-        <Button icon={ArrowRight} onClick={() => navigate('/roadmap')}>View My Roadmap</Button>
-      </div>
+      {totalSkills > 0 && (
+        <div className="skill-analysis-cta">
+          <p>Ready to see how these skills sequence into a full path?</p>
+          <Button icon={ArrowRight} onClick={() => navigate('/roadmap')}>View My Roadmap</Button>
+        </div>
+      )}
 
       <Drawer
         open={!!activeSkill}

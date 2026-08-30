@@ -7,27 +7,27 @@ GET  /api/me/activity — return recent activity log
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from asyncpg import Pool
 
-from app.config import get_settings
 from app.database.connection import get_pool
+from app.api.auth import get_current_learner_id
 from app.database.repositories import learner_repo, learning_history_repo
 from app.schemas.learner import LearnerProfileResponse, LearnerProfileUpdate
 from app.schemas.learning_history import ActivityLogItem
 from typing import Optional
+import json
+import logging
 from pydantic import BaseModel
 from app.services.ai_adaptive_graph import adaptive_graph_app
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["Learner"])
 
 
-def _get_learner_id(
-    # Phase 3: this will extract learner_id from the JWT token.
-    # For now it falls back to the DEV_LEARNER_ID env variable.
-    settings=Depends(get_settings),
-) -> str:
-    return settings.dev_learner_id
+# _get_learner_id has been replaced by the centralised get_current_learner_id
+# dependency in app/api/auth.py — it verifies Supabase JWTs.
 
 class AssessmentSignal(BaseModel):
     step_id: str
@@ -41,17 +41,46 @@ class AssessmentSignal(BaseModel):
     summary="Get current learner profile",
     description=(
         "Returns the full learner profile for the authenticated user. "
-        "In development mode, returns the profile for DEV_LEARNER_ID. "
-        "Mirrors the shape of userData.js `currentUser`."
+        "In development mode, returns the profile for DEV_LEARNER_ID if unauthenticated. "
+        "If a newly authenticated user (e.g. Google OAuth) does not have a profile yet, "
+        "creates and links an initial profile automatically."
     ),
 )
 async def get_me(
-    learner_id: str = Depends(_get_learner_id),
+    request: Request,
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> LearnerProfileResponse:
     profile = await learner_repo.get_learner_by_id(pool, learner_id)
     if not profile:
-        raise HTTPException(status_code=404, detail=f"Learner '{learner_id}' not found.")
+        # Auto-create initial learner profile for newly authenticated user (e.g. Google OAuth)
+        user_info = getattr(request.state, "user_info", {}) or {}
+        raw_name = user_info.get("full_name") or (user_info.get("email") or "").split("@")[0] or "Learner"
+        first_name = raw_name.split()[0] if raw_name else "Learner"
+        starter_data = {
+            "id": learner_id,
+            "name": raw_name,
+            "first_name": first_name,
+            "target_career_id": None,
+            "current_level": "Beginner",
+            "weekly_learning_hours": 8,
+            "interests": [],
+            "learning_style": None,
+            "preferred_session_length": "30-45 min",
+            "learning_preferences": {
+                "pace": "Steady (3-5 sessions / week)",
+                "format": ["Interactive courses", "Hands-on projects"],
+                "difficulty": "Push me slightly beyond current level",
+            },
+            "notification_settings": {
+                "roadmapUpdates": True,
+                "weeklyDigest": True,
+                "assessmentReminders": True,
+                "productNews": False,
+            },
+            "current_focus_skill_id": None,
+        }
+        profile = await learner_repo.create_learner(pool, starter_data)
     return LearnerProfileResponse(**profile)
 
 
@@ -63,7 +92,7 @@ async def get_me(
 )
 async def update_me(
     body: LearnerProfileUpdate,
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> LearnerProfileResponse:
     updates = body.model_dump(exclude_none=True)
@@ -81,7 +110,7 @@ async def update_me(
 )
 async def get_activity(
     limit: int = Query(default=20, ge=1, le=100),
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> list[ActivityLogItem]:
     rows = await learning_history_repo.get_activity_log(pool, learner_id, limit=limit)
@@ -94,7 +123,7 @@ async def get_activity(
 )
 async def trigger_adaptive_replan(
     signal: AssessmentSignal,
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> dict:
     # 1. Fetch current learner state
@@ -128,10 +157,52 @@ async def trigger_adaptive_replan(
     # 4. Execute the Async LangGraph Workflow
     final_state = await adaptive_graph_app.ainvoke(initial_state)
 
-    # 5. Return the LLM's structured output to the frontend
+    # 5. Log activity and record assessment result in DB
+    score_int = int(round(signal.score_percentage))
+    assessment_title = signal.step_id.replace("as_", "").replace("_", " ").title()
+    try:
+        await learning_history_repo.log_activity(
+            pool,
+            learner_id=learner_id,
+            event_type="assessment",
+            label=f"Completed {assessment_title} check-in",
+            meta=f"Scored {score_int}%",
+            reference_id=signal.step_id,
+        )
+    except Exception as e:
+        logger.warning(f"Could not log assessment activity: {e}")
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO assessment_results (
+                    learner_id, assessment_id, score_pct, correct_count, total_questions,
+                    answers, skill_performance, strengths, weak_areas, recommended_next,
+                    triggered_replan
+                )
+                VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11)
+                """,
+                learner_id,
+                signal.step_id,
+                score_int,
+                max(1, int(round(score_int / 100.0 * 6))),
+                6,
+                json.dumps({}),
+                json.dumps([{"skill": signal.target_skill_id, "percent": score_int}]),
+                [signal.target_skill_id] if score_int >= 70 else [],
+                [] if score_int >= 70 else [signal.target_skill_id],
+                final_state.get("replan_status_message", ""),
+                True,
+            )
+    except Exception as e:
+        logger.warning(f"Could not persist assessment result: {e}")
+
+    # 6. Return the LLM's structured output to the frontend
     return {
         "status": "success",
         "headline": final_state["replan_status_message"],
         "updated_mastery": final_state["new_mastery_score"],
-        "roadmap": final_state["replan_output"]
+        "roadmap": final_state["replan_output"],
     }
+

@@ -15,8 +15,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Pool
 
-from app.config import get_settings
 from app.database.connection import get_pool
+from app.api.auth import get_current_learner_id
 from app.database.repositories import recommendations_repo
 from app.schemas.recommendations import (
     RecommendationResponse,
@@ -28,12 +28,7 @@ from app.services.recommendation_engine import run_recommendation_engine
 router = APIRouter(prefix="/api", tags=["Recommendations"])
 
 
-def _get_learner_id(settings=Depends(get_settings)) -> str:
-    """
-    Returns the active learner ID.
-    Phase 3 (auth): replace with JWT extraction — recorded in FINAL_CHANGES.md (FC-006).
-    """
-    return settings.dev_learner_id
+
 
 
 @router.get(
@@ -50,7 +45,7 @@ def _get_learner_id(settings=Depends(get_settings)) -> str:
     ),
 )
 async def get_recommendations(
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> RecommendationResponse:
     """

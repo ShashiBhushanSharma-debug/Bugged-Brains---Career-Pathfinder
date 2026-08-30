@@ -24,8 +24,8 @@ class OnboardingHistoryItem(BaseModel):
 
 
 class OnboardingRequest(BaseModel):
-    """Body for POST /api/onboarding."""
-    learner_id: str
+    """Body for POST /api/onboarding. learner_id is now derived from the auth token."""
+    learner_id: Optional[str] = None  # Kept for backward compat; overridden by auth.uid()
     name: str
     first_name: Optional[str] = None
     target_career_id: Optional[str] = None

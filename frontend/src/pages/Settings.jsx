@@ -3,6 +3,7 @@ import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import LoadingState from '../components/LoadingState';
 import { useLearner } from '../hooks/useLearner';
+import { useAuth } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 import './Settings.css';
 
@@ -17,10 +18,11 @@ const NOTIF_LABELS = {
 // initialize directly from it — avoids setState-inside-useEffect pattern.
 function SettingsForm({ currentUser }) {
   const showToast = useToast();
+  const { user } = useAuth();
   const prefs = currentUser.learningPreferences ?? {};
 
-  const [name, setName] = useState(currentUser.name ?? '');
-  const [email] = useState('alex.rivera@example.com'); // no email field in API yet
+  const [name, setName] = useState(currentUser.name ?? user?.user_metadata?.full_name ?? '');
+  const email = user?.email ?? '';
   const [notifications, setNotifications] = useState(currentUser.notificationSettings ?? {});
   const [pace, setPace] = useState(prefs.pace ?? '');
   const [difficulty, setDifficulty] = useState(prefs.difficulty ?? '');

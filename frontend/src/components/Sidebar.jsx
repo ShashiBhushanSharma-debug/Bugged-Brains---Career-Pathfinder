@@ -1,7 +1,8 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Compass, Map, Radar, GraduationCap, ClipboardCheck, TrendingUp, Library, User, Settings,
+  Compass, Map, Radar, GraduationCap, ClipboardCheck, TrendingUp, Library, User, Settings, LogOut,
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
 const NAV_ITEMS = [
@@ -20,6 +21,14 @@ const BOTTOM_ITEMS = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
   return (
     <>
       <aside className="sidebar">
@@ -52,6 +61,10 @@ export default function Sidebar() {
               <span>{label}</span>
             </NavLink>
           ))}
+          <button className="sidebar-link sidebar-logout-btn" onClick={handleLogout}>
+            <LogOut size={17} strokeWidth={2} />
+            <span>Sign out</span>
+          </button>
         </nav>
       </aside>
 

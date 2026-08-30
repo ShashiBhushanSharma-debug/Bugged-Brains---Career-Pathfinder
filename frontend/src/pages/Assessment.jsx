@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, XCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
+import { apiFetch } from '../api/client';
 import { assessments, scoreAssessment } from '../data/assessmentData';
 import './Assessment.css';
 
@@ -44,19 +45,10 @@ export default function Assessment() {
     };
 
     try {
-      const response = await fetch('/api/me/replan', {
+      const replanResult = await apiFetch('/api/me/replan', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(signal),
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const replanResult = await response.json();
       
       // Navigate to the adaptive replanning view with the AI's generated response
       navigate('/adaptive', { state: { aiResponse: replanResult } });

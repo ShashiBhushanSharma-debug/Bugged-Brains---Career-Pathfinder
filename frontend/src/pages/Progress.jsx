@@ -4,21 +4,23 @@ import ProgressRing from '../components/ProgressRing';
 import LoadingState from '../components/LoadingState';
 import { useLearner } from '../hooks/useLearner';
 import { useSkillAnalysis } from '../hooks/useSkillAnalysis';
-// roadmapData is intentionally kept — no GET /api/roadmap endpoint exists yet.
-import { roadmapNodes } from '../data/roadmapData';
+import { useLearningHistory } from '../hooks/useLearningHistory';
+import { useActivity } from '../hooks/useActivity';
 import './Progress.css';
 
 export default function ProgressPage() {
   const { data: currentUser, loading: userLoading } = useLearner();
   const { data: skillData, loading: skillLoading } = useSkillAnalysis();
-
-  // roadmap stats from mock (no API yet)
-  const skillsMastered = roadmapNodes.filter((n) => n.status === 'completed' && n.type === 'skill').length;
-  const projectsDone = roadmapNodes.filter((n) => n.status === 'completed' && n.type === 'project').length;
-  const assessmentsDone = 1; // static until GET /api/assessments is implemented
+  const { data: historyData } = useLearningHistory('completed');
+  const { data: recentActivity } = useActivity();
 
   if (userLoading || skillLoading) return <LoadingState />;
   if (!currentUser) return null;
+
+  // Real user-scoped metrics
+  const skillsMastered = skillData?.categories?.find((c) => c.id === 'known')?.skills?.length ?? 0;
+  const projectsDone = (historyData?.items ?? []).filter((h) => h.type === 'project').length;
+  const assessmentsDone = (recentActivity ?? []).filter((a) => a.type === 'assessment').length;
 
   const skills = skillData?.skills ?? [];
 
@@ -52,20 +54,26 @@ export default function ProgressPage() {
 
       <section className="card">
         <span className="eyebrow">Skill proficiency over time</span>
-        <div className="progress-skill-bars">
-          {skills.map((s) => (
-            <div className="progress-skill-row" key={s.id}>
-              <span className="progress-skill-name">{s.name}</span>
-              <div className="progress-skill-track">
-                <div
-                  className={`progress-skill-fill fill-${s.status}`}
-                  style={{ width: `${s.proficiency}%` }}
-                />
+        {skills.length === 0 ? (
+          <p className="data-label" style={{ padding: '1rem 0', color: 'var(--ink-faint)' }}>
+            No skill data recorded yet. Complete onboarding or assessments to track your proficiency progression.
+          </p>
+        ) : (
+          <div className="progress-skill-bars">
+            {skills.map((s) => (
+              <div className="progress-skill-row" key={s.id}>
+                <span className="progress-skill-name">{s.name}</span>
+                <div className="progress-skill-track">
+                  <div
+                    className={`progress-skill-fill fill-${s.status}`}
+                    style={{ width: `${s.proficiency}%` }}
+                  />
+                </div>
+                <span className="data-label">{s.proficiency}%</span>
               </div>
-              <span className="data-label">{s.proficiency}%</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

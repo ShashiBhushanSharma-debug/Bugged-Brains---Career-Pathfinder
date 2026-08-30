@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    # ── Supabase Auth ─────────────────────────────────────────────────────────
+    # JWT secret used to verify Supabase access tokens on the backend.
+    # Found in: Supabase Dashboard > Project Settings > API > JWT Secret
+    supabase_jwt_secret: str = ""
+    supabase_url: str = ""
+
     # ── Development ───────────────────────────────────────────────────────────
     # Placeholder learner used in all endpoints until Phase 3 adds real auth.
     dev_learner_id: str = "u_1001"

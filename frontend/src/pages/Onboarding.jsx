@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Search, X, Check } from 'lucide-react';
 import Button from '../components/Button';
+import { useAuth } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 import './Onboarding.css';
 
@@ -35,6 +36,7 @@ const LEARNING_STYLES = [
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -125,9 +127,9 @@ export default function Onboarding() {
       await apiFetch('/api/onboarding', {
         method: 'POST',
         body: JSON.stringify({
-          learner_id: 'u_1001', // dev learner — replaced by auth.uid() in Phase 3 (FC-006)
-          name: targetRole,     // best available name placeholder until auth provides real name
-          first_name: '',
+          learner_id: user?.id ?? 'anonymous', // auth.uid() — the backend will override this from the JWT
+          name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || targetRole,
+          first_name: user?.user_metadata?.full_name?.split(' ')[0] || '',
           target_career_id: resolveCareerIdByTitle(targetRole),
           current_level: experienceLabelMap[experienceLevel] ?? experienceLevel,
           weekly_learning_hours: weeklyHours,

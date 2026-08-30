@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS learner_profiles (
     learning_preferences    JSONB       NULL,       -- {pace, format: [], difficulty} — display only, never filtered
     notification_settings   JSONB       NULL,       -- {roadmapUpdates, weeklyDigest, assessmentReminders, productNews}
     current_focus_skill_id  TEXT        NULL,       -- FK -> skills.id (active skill being studied)
+    onboarding_completed    BOOLEAN     NOT NULL DEFAULT FALSE, -- Set to TRUE upon completing onboarding
     joined_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),

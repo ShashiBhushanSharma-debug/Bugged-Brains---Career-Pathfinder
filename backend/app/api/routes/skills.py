@@ -10,8 +10,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from asyncpg import Pool
 
-from app.config import get_settings
 from app.database.connection import get_pool
+from app.api.auth import get_current_learner_id
 from app.database.repositories import skills_repo, careers_repo
 from app.schemas.skills import SkillAnalysisResponse, LearnerSkillResponse
 from app.services.skills_analysis import compute_skill_analysis
@@ -19,8 +19,7 @@ from app.services.skills_analysis import compute_skill_analysis
 router = APIRouter(prefix="/api", tags=["Skills"])
 
 
-def _get_learner_id(settings=Depends(get_settings)) -> str:
-    return settings.dev_learner_id
+
 
 
 @router.get(
@@ -35,7 +34,7 @@ def _get_learner_id(settings=Depends(get_settings)) -> str:
     ),
 )
 async def get_skill_analysis(
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> SkillAnalysisResponse:
     return await compute_skill_analysis(pool, learner_id)
