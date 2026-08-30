@@ -27,7 +27,7 @@ async def get_learner_by_id(pool: asyncpg.Pool, learner_id: str) -> Optional[dic
                 streak_days, weekly_learning_hours, total_learning_hours,
                 interests, learning_style, preferred_session_length,
                 learning_preferences, notification_settings,
-                current_focus_skill_id,
+                current_focus_skill_id, onboarding_completed,
                 joined_at, created_at, updated_at
             FROM learner_profiles
             WHERE id = $1
@@ -53,9 +53,9 @@ async def create_learner(pool: asyncpg.Pool, data: dict[str, Any]) -> dict:
                 weekly_learning_hours,
                 interests, learning_style, preferred_session_length,
                 learning_preferences, notification_settings,
-                current_focus_skill_id, joined_at
+                current_focus_skill_id, onboarding_completed, joined_at
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, NOW())
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, NOW())
             ON CONFLICT (id) DO UPDATE SET
                 name                    = EXCLUDED.name,
                 first_name              = EXCLUDED.first_name,
@@ -68,6 +68,7 @@ async def create_learner(pool: asyncpg.Pool, data: dict[str, Any]) -> dict:
                 learning_preferences    = EXCLUDED.learning_preferences,
                 notification_settings   = EXCLUDED.notification_settings,
                 current_focus_skill_id  = EXCLUDED.current_focus_skill_id,
+                onboarding_completed    = EXCLUDED.onboarding_completed,
                 updated_at              = NOW()
             RETURNING *
             """,
@@ -83,6 +84,7 @@ async def create_learner(pool: asyncpg.Pool, data: dict[str, Any]) -> dict:
             json.dumps(data["learning_preferences"]) if data.get("learning_preferences") else None,
             json.dumps(data["notification_settings"]) if data.get("notification_settings") else None,
             data.get("current_focus_skill_id"),
+            data.get("onboarding_completed", False),
         )
         return _row_to_dict(row)
 
@@ -106,7 +108,7 @@ async def update_learner(pool: asyncpg.Pool, learner_id: str, updates: dict) -> 
         "weekly_learning_hours", "total_learning_hours",
         "interests", "learning_style", "preferred_session_length",
         "learning_preferences", "notification_settings",
-        "current_focus_skill_id",
+        "current_focus_skill_id", "onboarding_completed",
     }
 
     for field, value in updates.items():

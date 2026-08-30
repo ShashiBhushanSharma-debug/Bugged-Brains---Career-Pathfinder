@@ -41,8 +41,8 @@ export default function Landing() {
           <nav className="landing-nav-links">
             <a href="#how-it-works">How it works</a>
             <a href="#features">Features</a>
-            <button className="landing-nav-login" onClick={() => navigate('/dashboard')}>Log in</button>
-            <Button size="sm" onClick={() => navigate('/onboarding')}>Build My Path</Button>
+            <button className="landing-nav-login" onClick={() => navigate('/login')}>Log in</button>
+            <Button size="sm" onClick={() => navigate('/signup')}>Build My Path</Button>
           </nav>
         </div>
       </header>
@@ -62,7 +62,7 @@ export default function Landing() {
             projects and assessments — then keeps re-routing it as you learn.
           </p>
           <div className="landing-hero-actions">
-            <Button icon={ArrowRight} onClick={() => navigate('/onboarding')}>Build My Learning Path</Button>
+            <Button icon={ArrowRight} onClick={() => navigate('/signup')}>Build My Learning Path</Button>
             <Button variant="secondary" as="a" href="#how-it-works">Explore How It Works</Button>
           </div>
           <div className="landing-hero-stats">
@@ -74,7 +74,7 @@ export default function Landing() {
 
         <div className="landing-hero-visual">
           <span className="eyebrow landing-hero-visual-label">Live preview — a real Career Pathfinder roadmap</span>
-          <Roadmap nodes={roadmapNodes} compact onSelectNode={() => navigate('/onboarding')} />
+          <Roadmap nodes={roadmapNodes} compact onSelectNode={() => navigate('/signup')} />
         </div>
       </section>
 
@@ -220,7 +220,7 @@ export default function Landing() {
         <Sparkles size={22} strokeWidth={1.75} />
         <h2>Plot your path in the next five minutes.</h2>
         <p>No generic course list. A route, built around your goal and reshaped as you learn.</p>
-        <Button size="lg" icon={ArrowRight} onClick={() => navigate('/onboarding')}>Build My Learning Path</Button>
+        <Button size="lg" icon={ArrowRight} onClick={() => navigate('/signup')}>Build My Learning Path</Button>
       </section>
 
       {/* Footer */}
@@ -232,7 +232,7 @@ export default function Landing() {
         <nav>
           <a href="#how-it-works">How it works</a>
           <a href="#features">Features</a>
-          <a href="/onboarding" onClick={(e) => { e.preventDefault(); navigate('/onboarding'); }}>Get started</a>
+          <a href="/signup" onClick={(e) => { e.preventDefault(); navigate('/signup'); }}>Get started</a>
         </nav>
         <span className="data-label">© {new Date().getFullYear()} Career Pathfinder</span>
       </footer>

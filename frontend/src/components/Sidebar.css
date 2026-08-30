@@ -74,6 +74,18 @@
   color: var(--pine-ink);
 }
 
+.sidebar-logout-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-logout-btn:hover {
+  color: var(--rust-ink);
+  background: var(--rust-soft);
+}
 .mobile-nav {
   display: none;
 }

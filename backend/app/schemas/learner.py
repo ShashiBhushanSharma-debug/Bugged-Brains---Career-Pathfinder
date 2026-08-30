@@ -36,6 +36,7 @@ class LearnerProfileResponse(BaseModel):
     learning_preferences: Optional[Dict[str, Any]] = None
     notification_settings: Optional[Dict[str, Any]] = None
     current_focus_skill_id: Optional[str] = None
+    onboarding_completed: bool = False
     joined_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -58,3 +59,4 @@ class LearnerProfileUpdate(BaseModel):
     learning_preferences: Optional[Dict[str, Any]] = None
     notification_settings: Optional[Dict[str, Any]] = None
     current_focus_skill_id: Optional[str] = None
+    onboarding_completed: Optional[bool] = None

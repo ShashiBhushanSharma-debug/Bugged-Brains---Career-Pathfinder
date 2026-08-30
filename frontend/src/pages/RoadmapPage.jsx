@@ -5,7 +5,9 @@ import Roadmap from '../components/Roadmap';
 import Drawer from '../components/Drawer';
 import WhyThis from '../components/WhyThis';
 import Button from '../components/Button';
-import { roadmapNodes } from '../data/roadmapData';
+import LoadingState from '../components/LoadingState';
+import EmptyState from '../components/EmptyState';
+import { useRoadmap } from '../hooks/useRoadmap';
 import './RoadmapPage.css';
 
 const LEGEND = [
@@ -19,6 +21,10 @@ const LEGEND = [
 export default function RoadmapPage() {
   const navigate = useNavigate();
   const [activeNode, setActiveNode] = useState(null);
+  const { nodes, replanReason, loading, error } = useRoadmap();
+
+  if (loading) return <LoadingState />;
+  if (error) return <p className="section-lede" style={{ padding: '2rem' }}>Could not load roadmap: {error}</p>;
 
   return (
     <div className="roadmap-page">
@@ -30,20 +36,34 @@ export default function RoadmapPage() {
             Each stop is sequenced by prerequisite — click any node for the reasoning behind it.
           </p>
         </div>
-        <Button variant="secondary" icon={Sparkles} onClick={() => navigate('/adaptive')}>
-          View last update
-        </Button>
+        {replanReason && (
+          <Button variant="secondary" icon={Sparkles} onClick={() => navigate('/adaptive')}>
+            View last update
+          </Button>
+        )}
       </div>
 
-      <div className="roadmap-page-legend">
-        {LEGEND.map((l) => (
-          <span className="roadmap-page-legend-item" key={l.status}>
-            <span className={`dot dot-${l.status}`} /> {l.label}
-          </span>
-        ))}
-      </div>
+      {nodes.length === 0 ? (
+        <div style={{ marginTop: '2rem' }}>
+          <EmptyState
+            title="No Roadmap Generated Yet"
+            description="Complete onboarding or select a target career to view your custom sequenced learning path."
+            action={<Button onClick={() => navigate('/onboarding')}>Start Onboarding</Button>}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="roadmap-page-legend">
+            {LEGEND.map((l) => (
+              <span className="roadmap-page-legend-item" key={l.status}>
+                <span className={`dot dot-${l.status}`} /> {l.label}
+              </span>
+            ))}
+          </div>
 
-      <Roadmap nodes={roadmapNodes} onSelectNode={setActiveNode} />
+          <Roadmap nodes={nodes} onSelectNode={setActiveNode} />
+        </>
+      )}
 
       <Drawer
         open={!!activeNode}

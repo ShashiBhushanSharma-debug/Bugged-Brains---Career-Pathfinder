@@ -1,10 +1,37 @@
 import { useState } from 'react';
-import { Search, Bell } from 'lucide-react';
-import { currentUser } from '../data/userData';
+import { useNavigate } from 'react-router-dom';
+import { Search, Bell, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import './Navbar.css';
 
+/**
+ * Derive avatar initials from the authenticated user.
+ * Priority: user_metadata.full_name → email prefix → '?'
+ */
+function getInitials(user) {
+  if (!user) return '?';
+  const fullName = user.user_metadata?.full_name;
+  if (fullName) {
+    const parts = fullName.trim().split(/\s+/);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0].slice(0, 2).toUpperCase();
+  }
+  // Fallback to email
+  const email = user.email || '';
+  return email.slice(0, 2).toUpperCase();
+}
+
 export default function Navbar() {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   return (
     <header className="navbar">
@@ -35,9 +62,29 @@ export default function Navbar() {
             </div>
           </div>
         )}
-        <button className="navbar-avatar" aria-label="Profile menu">
-          {currentUser.avatarInitials}
-        </button>
+
+        {/* Avatar + dropdown menu */}
+        <div className="navbar-avatar-wrapper">
+          <button
+            className="navbar-avatar"
+            aria-label="Profile menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {getInitials(user)}
+          </button>
+          {menuOpen && (
+            <div className="navbar-avatar-menu" role="menu">
+              {user?.email && (
+                <div className="navbar-avatar-menu-email">{user.email}</div>
+              )}
+              <button className="navbar-avatar-menu-item" role="menuitem" onClick={handleLogout}>
+                <LogOut size={15} strokeWidth={2} />
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

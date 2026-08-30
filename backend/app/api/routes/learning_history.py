@@ -13,8 +13,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from asyncpg import Pool
 
-from app.config import get_settings
 from app.database.connection import get_pool
+from app.api.auth import get_current_learner_id
 from app.database.repositories import learning_history_repo
 from app.schemas.learning_history import (
     LearningHistoryItem,
@@ -26,8 +26,7 @@ from app.schemas.learning_history import (
 router = APIRouter(prefix="/api", tags=["Learning History"])
 
 
-def _get_learner_id(settings=Depends(get_settings)) -> str:
-    return settings.dev_learner_id
+
 
 
 @router.get(
@@ -42,7 +41,7 @@ def _get_learner_id(settings=Depends(get_settings)) -> str:
 )
 async def get_learning_history(
     status: Optional[str] = Query(default=None, description="Filter by status"),
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> LearningHistoryResponse:
     rows = await learning_history_repo.get_learning_history(pool, learner_id, status=status)
@@ -57,9 +56,10 @@ async def get_learning_history(
 )
 async def get_history_item(
     item_id: str,
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> LearningHistoryItem:
-    row = await learning_history_repo.get_history_item_by_id(pool, item_id)
+    row = await learning_history_repo.get_history_item_by_id(pool, learner_id, item_id)
     if not row:
         raise HTTPException(status_code=404, detail=f"History item '{item_id}' not found.")
     return LearningHistoryItem(**row)
@@ -74,7 +74,7 @@ async def get_history_item(
 )
 async def create_history_item(
     body: LearningHistoryCreateRequest,
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> LearningHistoryItem:
     # Check for duplicate
@@ -102,20 +102,20 @@ async def create_history_item(
 async def update_history_item(
     item_id: str,
     body: LearningHistoryUpdateRequest,
-    learner_id: str = Depends(_get_learner_id),
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> LearningHistoryItem:
     updates = body.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No update fields provided.")
 
-    row = await learning_history_repo.update_history_item(pool, item_id, updates)
+    row = await learning_history_repo.update_history_item(pool, learner_id, item_id, updates)
     if not row:
         raise HTTPException(status_code=404, detail=f"History item '{item_id}' not found.")
 
     # Log activity if completed
     if updates.get("status") == "completed":
-        item = await learning_history_repo.get_history_item_by_id(pool, item_id)
+        item = await learning_history_repo.get_history_item_by_id(pool, learner_id, item_id)
         if item:
             await learning_history_repo.log_activity(
                 pool,

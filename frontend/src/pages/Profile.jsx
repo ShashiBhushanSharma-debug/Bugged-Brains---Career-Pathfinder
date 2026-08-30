@@ -3,13 +3,17 @@ import { Pencil, Check } from 'lucide-react';
 import SkillBadge from '../components/SkillBadge';
 import Button from '../components/Button';
 import LoadingState from '../components/LoadingState';
+import { useToast } from '../components/Toast';
 import { useLearner } from '../hooks/useLearner';
 import { useSkillAnalysis } from '../hooks/useSkillAnalysis';
 import { useLearningHistory } from '../hooks/useLearningHistory';
+import { apiFetch } from '../api/client';
 import './Profile.css';
 
 export default function Profile() {
+  const showToast = useToast();
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const { data: currentUser, loading: userLoading } = useLearner();
   const { data: skillData, loading: skillLoading } = useSkillAnalysis();
@@ -28,6 +32,29 @@ export default function Profile() {
   if (currentUser && interests === null && !editing) {
     setInterests(currentUser.interests ?? []);
   }
+
+  const handleToggleEdit = async () => {
+    if (editing) {
+      // User is clicking "Save"
+      setSaving(true);
+      try {
+        await apiFetch('/api/me', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            interests: interests ?? currentUser.interests ?? [],
+          }),
+        });
+        showToast('Profile updated', { type: 'success' });
+      } catch (err) {
+        showToast(`Could not update profile: ${err.message}`, { type: 'error' });
+      } finally {
+        setSaving(false);
+        setEditing(false);
+      }
+    } else {
+      setEditing(true);
+    }
+  };
 
   if (loading) return <LoadingState />;
   if (!currentUser) return null;
@@ -53,9 +80,10 @@ export default function Profile() {
           variant="secondary"
           size="sm"
           icon={editing ? Check : Pencil}
-          onClick={() => setEditing((e) => !e)}
+          onClick={handleToggleEdit}
+          disabled={saving}
         >
-          {editing ? 'Save' : 'Edit profile'}
+          {saving ? 'Saving…' : (editing ? 'Save' : 'Edit profile')}
         </Button>
       </div>
 
