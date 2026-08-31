@@ -1,0 +1,78 @@
+.skill-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.skill-analysis-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.skill-analysis-head h1 { font-size: 28px; margin: 4px 0; }
+
+.skill-analysis-readiness {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skill-analysis-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.skill-analysis-section-head h2 { font-size: 18px; }
+
+.skill-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+}
+
+.skill-analysis-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  flex-wrap: wrap;
+}
+.skill-analysis-cta p { font-family: var(--font-display); font-weight: 600; font-size: 16px; }
+
+/* Drawer content */
+.skill-drawer-bar-track {
+  position: relative;
+  height: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: visible;
+}
+.skill-drawer-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+}
+.skill-drawer-bar-target {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--ink);
+}
+.skill-drawer-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+@media (max-width: 560px) {
+  .skill-analysis-grid { grid-template-columns: 1fr; }
+}

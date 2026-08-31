@@ -1,0 +1,19 @@
+.loading-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.loading-line {
+  height: 14px;
+  border-radius: var(--radius-sm);
+}
+
+.loading-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+.loading-card {
+  height: 140px;
+  border-radius: var(--radius-lg);
+}

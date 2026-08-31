@@ -1,0 +1,16 @@
+.skill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.skill-badge-status {
+  color: var(--ink-faint);
+}

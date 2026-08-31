@@ -1,0 +1,124 @@
+.sidebar {
+  width: 234px;
+  flex-shrink: 0;
+  background: var(--paper-raised);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-3);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-2) var(--space-2) var(--space-6);
+}
+
+.sidebar-logo-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-text {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav-bottom {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.sidebar-link:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.sidebar-link.active {
+  background: var(--pine-soft);
+  color: var(--pine-ink);
+}
+
+.sidebar-logout-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-logout-btn:hover {
+  color: var(--rust-ink);
+  background: var(--rust-soft);
+}
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--paper-raised);
+    border-top: 1px solid var(--line);
+    padding: 6px var(--space-2) calc(6px + env(safe-area-inset-bottom));
+    z-index: 40;
+    justify-content: space-between;
+  }
+
+  .mobile-nav-link {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 2px;
+    font-size: 10px;
+    color: var(--ink-faint);
+    border-radius: var(--radius-sm);
+  }
+
+  .mobile-nav-link.active {
+    color: var(--pine-ink);
+  }
+}
