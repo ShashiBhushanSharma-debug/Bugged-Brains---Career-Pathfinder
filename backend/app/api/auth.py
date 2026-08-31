@@ -14,10 +14,34 @@ Phase 3: Verifies Supabase JWT access tokens and extracts the learner_id
 """
 from __future__ import annotations
 
+import base64
+
 from fastapi import Depends, HTTPException, Request
 import jwt
 
 from app.config import get_settings, Settings
+
+
+def _decode_supabase_secret(raw: str) -> bytes | str:
+    """
+    Supabase stores the JWT secret as a base64-encoded string in its dashboard.
+    It signs tokens using the *decoded* raw bytes of that secret.
+
+    PyJWT, when given a plain `str`, signs/verifies with the UTF-8 bytes of
+    that string — which never match the decoded bytes → InvalidSignatureError.
+
+    This helper returns the secret in the correct form:
+    - If the raw value is valid base64 (Supabase standard), decode and return bytes.
+    - Otherwise fall back to the raw string so existing non-base64 dev secrets still work.
+    """
+    if not raw:
+        return raw
+    try:
+        # Standard base64 — Supabase JWT secrets are always base64
+        return base64.b64decode(raw)
+    except Exception:
+        # Not base64 (e.g. a plain-text dev secret) — use as-is
+        return raw
 
 
 async def get_current_learner_id(
@@ -51,8 +75,15 @@ async def get_current_learner_id(
     payload = None
 
     # ── Verify the JWT if secret is configured ────────────────────────────────
-    secret = settings.supabase_jwt_secret
-    is_secret_configured = bool(secret and secret != "your-jwt-secret-here")
+    # Supabase JWT secrets are base64-encoded in the dashboard but Supabase signs
+    # tokens with the *decoded* raw bytes.  We must base64-decode before passing
+    # to PyJWT — otherwise PyJWT uses the UTF-8 bytes of the string, which never
+    # match, producing an InvalidSignatureError (→ 401) on every real token.
+    secret = _decode_supabase_secret(settings.supabase_jwt_secret)
+    is_secret_configured = bool(
+        settings.supabase_jwt_secret
+        and settings.supabase_jwt_secret != "your-jwt-secret-here"
+    )
 
     if is_secret_configured:
         try:
