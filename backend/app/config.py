@@ -5,6 +5,7 @@ Central settings object loaded from environment variables via pydantic-settings.
 Never import secrets directly — always go through settings.
 """
 from functools import lru_cache
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     # ── App ───────────────────────────────────────────────────────────────────
     app_env: str = "development"
     app_host: str = "0.0.0.0"
-    app_port: int = 8000
+    app_port: int = Field(default=8000, validation_alias=AliasChoices("port", "app_port"))
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Stored as a comma-separated string in .env; parsed into a list below.
