@@ -105,4 +105,86 @@ def test_base64_secret_decoding_unit():
 def test_plain_secret_fallback_unit():
     plain = "not-base64-plain-secret"
     result = _decode_supabase_secret(plain)
-    assert result is not None
+    # Invalid base64 returns None so the auth flow falls back to raw string
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_dual_mode_jwt_verification_bytes_and_string(monkeypatch):
+    """
+    Verifies that the auth dependency can decode tokens signed with:
+    1. Base64 decoded bytes (Supabase standard)
+    2. Raw string UTF-8 bytes (fallback)
+    """
+    from unittest.mock import AsyncMock
+    import app.database.connection as conn_module
+
+    # Mock DB pool and learner repo
+    monkeypatch.setattr(conn_module, "_pool", AsyncMock())
+    settings = get_settings()
+    b64_secret = "dGVzdC1zZWNyZXQtZm9yLXVuaXQtdGVzdGluZy1vbmx5LXNhZmU="
+    monkeypatch.setattr(settings, "supabase_jwt_secret", b64_secret)
+    monkeypatch.setattr(settings, "app_env", "production")
+
+    payload = {
+        "sub": "user_bytes_test_123",
+        "email": "bytes@example.com",
+        "user_metadata": {"full_name": "Bytes User"},
+    }
+
+    # 1. Token signed with base64 decoded raw bytes
+    token_bytes = jwt.encode(payload, base64.b64decode(b64_secret), algorithm="HS256")
+
+    # 2. Token signed with raw string
+    payload_str = {
+        "sub": "user_str_test_456",
+        "email": "str@example.com",
+        "user_metadata": {"full_name": "String User"},
+    }
+    token_str = jwt.encode(payload_str, b64_secret, algorithm="HS256")
+
+    from app.database.repositories import learner_repo
+    async def mock_get_learner(pool, lid):
+        return {
+            "id": lid,
+            "name": "Test User",
+            "first_name": "Test",
+            "target_career_id": "cr_frontend",
+            "current_level": "Beginner",
+            "weekly_learning_hours": 8,
+            "onboarding_completed": True,
+        }
+    monkeypatch.setattr(learner_repo, "get_learner_by_id", mock_get_learner)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Token 1 (bytes)
+        resp1 = await client.get("/api/me", headers={"Authorization": f"Bearer {token_bytes}"})
+        assert resp1.status_code == 200
+        assert resp1.json()["id"] == "user_bytes_test_123"
+
+        # Token 2 (string)
+        resp2 = await client.get("/api/me", headers={"Authorization": f"Bearer {token_str}"})
+        assert resp2.status_code == 200
+        assert resp2.json()["id"] == "user_str_test_456"
+
+
+@pytest.mark.asyncio
+async def test_expired_token_returns_401(monkeypatch):
+    """Expired JWT must return 401 Token has expired."""
+    settings = get_settings()
+    b64_secret = "dGVzdC1zZWNyZXQtZm9yLXVuaXQtdGVzdGluZy1vbmx5LXNhZmU="
+    monkeypatch.setattr(settings, "supabase_jwt_secret", b64_secret)
+    monkeypatch.setattr(settings, "app_env", "production")
+
+    payload = {
+        "sub": "user_expired_test",
+        "exp": 1000000000,  # Far past
+    }
+    token = jwt.encode(payload, base64.b64decode(b64_secret), algorithm="HS256")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401
+        assert "expired" in resp.text.lower()

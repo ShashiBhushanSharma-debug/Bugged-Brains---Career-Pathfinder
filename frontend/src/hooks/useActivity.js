@@ -7,15 +7,21 @@
  * Dashboard timeAgo() uses item.timestamp — we map occurred_at -> timestamp.
  */
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 
 export function useActivity(limit = 20) {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (authLoading || !user) {
+      return;
+    }
 
     async function load() {
       try {
@@ -40,7 +46,7 @@ export function useActivity(limit = 20) {
 
     load();
     return () => { cancelled = true; };
-  }, [limit]);
+  }, [user, authLoading, limit]);
 
-  return { data, loading, error };
+  return { data: user ? data : null, loading: authLoading || (Boolean(user) && loading), error };
 }
