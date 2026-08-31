@@ -94,15 +94,20 @@ async def get_recommendations(
     description=(
         "Manually post a recommendation batch. Kept for backward compatibility "
         "and testing. The GET endpoint now runs the engine automatically, so this "
-        "endpoint is mainly used by integration tests and future engine variants."
+        "endpoint is mainly used by integration tests and future engine variants. "
+        "Requires authentication — the learner_id in the body is IGNORED; the "
+        "authenticated JWT identity is always used."
     ),
 )
 async def save_recommendations(
     body: RecommendationWriteRequest,
+    learner_id: str = Depends(get_current_learner_id),
     pool: Pool = Depends(get_pool),
 ) -> dict:
+    # SECURITY: Always use the authenticated learner_id from the JWT.
+    # body.learner_id is accepted for backward-compat schema but never trusted.
     # Deactivate old batch
-    await recommendations_repo.deactivate_recommendations(pool, body.learner_id)
+    await recommendations_repo.deactivate_recommendations(pool, learner_id)
 
     # Save new batch
     recs_to_save = [
@@ -113,11 +118,11 @@ async def save_recommendations(
         }
         for item in body.recommendations
     ]
-    count = await recommendations_repo.save_recommendations(pool, body.learner_id, recs_to_save)
+    count = await recommendations_repo.save_recommendations(pool, learner_id, recs_to_save)
 
     return {
         "success": True,
-        "learner_id": body.learner_id,
+        "learner_id": learner_id,
         "saved": count,
-        "message": f"{count} recommendations saved for learner {body.learner_id}.",
+        "message": f"{count} recommendations saved for learner {learner_id}.",
     }

@@ -60,7 +60,18 @@ def create_app() -> FastAPI:
     # ── Routes ────────────────────────────────────────────────────────────────
     app.include_router(api_router)
 
-    # ── Health check ──────────────────────────────────────────────────────────
+    # ── Root & Health check ───────────────────────────────────────────────────
+    @app.get("/", tags=["Health"])
+    async def root() -> dict:
+        return {
+            "status": "ok",
+            "message": "Career Pathfinder API is running",
+            "version": "0.2.0",
+            "env": settings.app_env,
+            "docs": "/docs",
+            "health": "/health",
+        }
+
     @app.get("/health", tags=["Health"])
     async def health() -> dict:
         return {"status": "ok", "version": "0.2.0", "env": settings.app_env}

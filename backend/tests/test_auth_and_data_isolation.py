@@ -269,3 +269,50 @@ async def test_production_token_signed_with_decoded_bytes_is_accepted(client):
     )
     data = response.json()
     assert data["id"] == user_id, f"Expected learner id {user_id!r}, got {data['id']!r}"
+
+
+@pytest.mark.asyncio
+async def test_health_and_root_endpoints(client):
+    """
+    Health check endpoints must respond with HTTP 200 OK without requiring authentication
+    or database access, ensuring Render deployment health checks succeed immediately.
+    """
+    # 1. GET /health
+    health_resp = await client.get("/health")
+    assert health_resp.status_code == 200
+    health_data = health_resp.json()
+    assert health_data.get("status") == "ok"
+
+    # 2. GET / (root endpoint)
+    root_resp = await client.get("/")
+    assert root_resp.status_code == 200
+    root_data = root_resp.json()
+    assert root_data.get("status") == "ok"
+
+
+@pytest.mark.asyncio
+async def test_recommendations_post_requires_auth(client):
+    """
+    POST /api/recommendations must reject invalid tokens with 401 Unauthorized
+    and must not permit unauthenticated recommendation overwrites.
+    """
+    payload = {
+        "learner_id": "target_victim_user",
+        "recommendations": [
+            {
+                "resource_id": "res_react_01",
+                "resource_title": "React Masterclass",
+                "resource_type": "course",
+                "score": 98.5,
+                "reasoning": "High priority",
+                "priority": 1,
+            }
+        ]
+    }
+    # Unauthenticated / invalid token
+    resp = await client.post(
+        "/api/recommendations",
+        json=payload,
+        headers={"Authorization": "Bearer invalid.malformed.token"},
+    )
+    assert resp.status_code == 401
