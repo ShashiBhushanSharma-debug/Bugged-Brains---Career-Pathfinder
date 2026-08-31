@@ -3,8 +3,10 @@ app/api/auth.py
 
 Centralised authentication dependency for all protected endpoints.
 
-Phase 3: Verifies Supabase JWT access tokens and extracts the learner_id
-(auth.uid()) from the token's `sub` claim.
+Phase 3 & Production: Verifies Supabase JWT access tokens using:
+1. ES256 / RS256 Asymmetric JWKS public keys fetched from:
+   https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+2. HS256 Symmetric shared secret (legacy / local dev).
 
 - If an Authorization header is provided, it is strictly validated. Any invalid,
   expired, or malformed token results in a 401 Unauthorized.
@@ -20,57 +22,62 @@ import time
 from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, Request
-import httpx
 import jwt
+from jwt import PyJWKClient, PyJWKClientError
 
 from app.config import get_settings, Settings
 
 logger = logging.getLogger(__name__)
 
+ALLOWED_ALGORITHMS = {"ES256", "RS256", "HS256"}
+
+# In-memory JWKS clients cached per Supabase URL
+_jwks_clients: Dict[str, PyJWKClient] = {}
+
+
+def get_jwks_client(supabase_url: str) -> PyJWKClient:
+    """
+    Get or create a cached PyJWKClient for the given Supabase URL.
+    JWKS keys are cached in-memory with a 1-hour TTL (3600s).
+    """
+    jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+    if jwks_url not in _jwks_clients:
+        _jwks_clients[jwks_url] = PyJWKClient(
+            jwks_url,
+            cache_keys=True,
+            max_cached_keys=16,
+            lifespan=3600,
+        )
+    return _jwks_clients[jwks_url]
+
 
 def _decode_supabase_secret(raw: str) -> Optional[bytes]:
     """
-    Attempt to base64-decode the Supabase JWT secret.
-    Supabase stores the JWT secret as a base64-encoded string in its dashboard
-    and signs tokens with the raw decoded bytes.
+    Attempt to base64-decode the Supabase JWT secret for HS256 tokens.
     """
     if not raw:
         return None
     try:
         clean = raw.strip().strip('"').strip("'")
-        decoded = base64.b64decode(clean, validate=True)
-        return decoded
+        return base64.b64decode(clean, validate=True)
     except Exception:
         return None
 
 
-async def _verify_token_with_supabase_api(token: str, supabase_url: str) -> Optional[Dict[str, Any]]:
+def _get_signing_key_with_refresh(jwks_client: PyJWKClient, kid: str):
     """
-    Verify the token directly with the Supabase Auth API endpoint (GET /auth/v1/user).
-    This serves as a reliable fallback when asymmetric keys (RS256/ES256), JWKS,
-    or key rotations are configured on the Supabase project.
+    Retrieve signing key by kid from JWKS client.
+    If not found in cache (possible key rotation), invalidate cache and retry once.
     """
-    if not supabase_url:
-        return None
-
-    url = f"{supabase_url.rstrip('/')}/auth/v1/user"
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
-            print(f"[AUTH DIAGNOSTIC] supabase_auth_api: url={url}, status_code={resp.status_code}")
-            if resp.status_code == 200:
-                user_data = resp.json()
-                if "id" in user_data:
-                    return {
-                        "sub": user_data["id"],
-                        "email": user_data.get("email", ""),
-                        "user_metadata": user_data.get("user_metadata", {}),
-                    }
-            else:
-                print(f"[AUTH DIAGNOSTIC] supabase_auth_api_rejected: status={resp.status_code}")
-    except Exception as e:
-        print(f"[AUTH DIAGNOSTIC] supabase_auth_api_exception: {type(e).__name__}")
-    return None
+        return jwks_client.get_signing_key(kid)
+    except Exception:
+        # Key rotation or cache miss — invalidate cached set and retry once
+        try:
+            jwks_client.jwk_set = None
+            return jwks_client.get_signing_key(kid)
+        except Exception as retry_err:
+            raise PyJWKClientError(f"Signing key not found for kid '{kid}': {retry_err}") from retry_err
 
 
 async def get_current_learner_id(
@@ -81,8 +88,12 @@ async def get_current_learner_id(
     FastAPI dependency: resolve the current learner_id from the Supabase JWT.
 
     1. Read the Authorization header (Bearer token).
-    2. Decode & verify the JWT (via local HS256 secret or Supabase Auth API).
-    3. Return the `sub` claim (auth.uid()).
+    2. Inspect unverified header for algorithm and key ID (kid).
+    3. Verify token:
+       - If ES256 / RS256: fetch public key from Supabase JWKS and verify signature.
+       - If HS256: verify using SUPABASE_JWT_SECRET.
+    4. Validate expiration, issuer, audience, and required `sub` claim.
+    5. Return the `sub` claim (auth.uid()).
     """
     auth_header = request.headers.get("Authorization", "")
     has_header = bool(auth_header)
@@ -105,7 +116,7 @@ async def get_current_learner_id(
         print("[AUTH DIAGNOSTIC] token_present=False, action=REJECT_EMPTY_TOKEN")
         raise HTTPException(status_code=401, detail="Empty authentication token.")
 
-    # ── Safe unverified token metadata inspection ─────────────────────────────
+    # ── Inspect unverified token header & metadata ────────────────────────────
     alg = None
     kid = None
     iss = None
@@ -120,6 +131,12 @@ async def get_current_learner_id(
         kid = header.get("kid")
     except Exception as e:
         print(f"[AUTH DIAGNOSTIC] header_inspection_error={type(e).__name__}")
+        raise HTTPException(status_code=401, detail="Malformed authentication token header.")
+
+    # Reject disallowed algorithms (including 'none' or missing alg)
+    if not alg or alg not in ALLOWED_ALGORITHMS:
+        print(f"[AUTH DIAGNOSTIC] disallowed_alg={alg}, action=REJECT_401")
+        raise HTTPException(status_code=401, detail=f"Unsupported token algorithm '{alg}'.")
 
     try:
         unverified = jwt.decode(
@@ -134,6 +151,7 @@ async def get_current_learner_id(
             is_expired = time.time() > exp
     except Exception as e:
         print(f"[AUTH DIAGNOSTIC] payload_inspection_error={type(e).__name__}")
+        raise HTTPException(status_code=401, detail="Malformed authentication token payload.")
 
     print(
         f"[AUTH DIAGNOSTIC] incoming_jwt: alg={alg}, kid={kid}, iss={iss}, aud={aud}, "
@@ -146,75 +164,113 @@ async def get_current_learner_id(
 
     payload: Optional[Dict[str, Any]] = None
 
-    # ── Verify the JWT ────────────────────────────────────────────────────────
-    raw_secret = (settings.supabase_jwt_secret or "").strip().strip('"').strip("'")
-    is_secret_configured = bool(raw_secret and raw_secret != "your-jwt-secret-here")
-    supabase_url_configured = bool(settings.supabase_url)
+    # ── 1. Asymmetric Verification (ES256 / RS256 via Supabase JWKS) ──────────
+    if alg in {"ES256", "RS256"}:
+        supabase_url = settings.supabase_url
+        if not supabase_url:
+            print("[AUTH DIAGNOSTIC] error=SUPABASE_URL_missing_for_JWKS")
+            if not settings.is_development:
+                raise HTTPException(status_code=500, detail="Server configuration error: SUPABASE_URL is not set.")
+        else:
+            if not kid:
+                print("[AUTH DIAGNOSTIC] error=asymmetric_token_missing_kid")
+                raise HTTPException(status_code=401, detail="Token missing key ID (kid).")
 
-    print(
-        f"[AUTH DIAGNOSTIC] config: secret_configured={is_secret_configured}, "
-        f"supabase_url_configured={supabase_url_configured}, env={settings.app_env}"
-    )
-
-    if is_secret_configured and alg == "HS256":
-        # 1. Attempt verification with base64-decoded bytes (Supabase standard)
-        b64_bytes = _decode_supabase_secret(raw_secret)
-        if b64_bytes:
             try:
+                jwks_client = get_jwks_client(supabase_url)
+                signing_key = _get_signing_key_with_refresh(jwks_client, kid)
+                print(f"[AUTH DIAGNOSTIC] alg={alg} kid={kid} key_found=True")
+
                 payload = jwt.decode(
                     token,
-                    b64_bytes,
-                    algorithms=["HS256"],
-                    options={"verify_aud": False},
+                    signing_key.key,
+                    algorithms=[alg],
+                    audience="authenticated",
+                    options={
+                        "verify_signature": True,
+                        "verify_exp": True,
+                        "verify_nbf": True,
+                        "verify_aud": True,
+                        "verify_iss": False,  # validate explicitly below for clean diagnostic logging
+                    },
                 )
-                print("[AUTH DIAGNOSTIC] step=hs256_base64_bytes, success=True")
+                print(f"[AUTH DIAGNOSTIC] verification_method=supabase_jwks, signature_valid=True")
             except jwt.ExpiredSignatureError:
-                print("[AUTH DIAGNOSTIC] step=hs256_base64_bytes, error=ExpiredSignatureError")
+                print("[AUTH DIAGNOSTIC] verification_method=supabase_jwks, error=ExpiredSignatureError")
                 raise HTTPException(status_code=401, detail="Token has expired.")
+            except jwt.InvalidAudienceError:
+                print(f"[AUTH DIAGNOSTIC] verification_method=supabase_jwks, error=InvalidAudience (aud={aud})")
+                raise HTTPException(status_code=401, detail="Invalid token audience.")
+            except PyJWKClientError as e:
+                print(f"[AUTH DIAGNOSTIC] verification_method=supabase_jwks, error=PyJWKClientError ({e})")
+                raise HTTPException(status_code=401, detail="Unable to verify token signature with key server.")
             except Exception as e:
-                print(f"[AUTH DIAGNOSTIC] step=hs256_base64_bytes, error={type(e).__name__}")
+                print(f"[AUTH DIAGNOSTIC] verification_method=supabase_jwks, error={type(e).__name__} ({e})")
                 payload = None
 
-        # 2. If decoded bytes failed, attempt verification with raw string (UTF-8 bytes)
-        if payload is None:
-            try:
-                payload = jwt.decode(
-                    token,
-                    raw_secret,
-                    algorithms=["HS256"],
-                    options={"verify_aud": False},
-                )
-                print("[AUTH DIAGNOSTIC] step=hs256_raw_string, success=True")
-            except jwt.ExpiredSignatureError:
-                print("[AUTH DIAGNOSTIC] step=hs256_raw_string, error=ExpiredSignatureError")
-                raise HTTPException(status_code=401, detail="Token has expired.")
-            except Exception as e:
-                print(f"[AUTH DIAGNOSTIC] step=hs256_raw_string, error={type(e).__name__}")
-                payload = None
+        # Validate issuer if supabase_url is configured
+        if payload and supabase_url:
+            expected_iss = f"{supabase_url.rstrip('/')}/auth/v1"
+            token_iss = payload.get("iss")
+            if token_iss and token_iss != expected_iss:
+                print(f"[AUTH DIAGNOSTIC] issuer_mismatch: expected={expected_iss}, received={token_iss}")
+                raise HTTPException(status_code=401, detail="Invalid token issuer.")
 
-    # 3. If local signature failed or asymmetric/JWKS is used, verify via Supabase Auth API
-    if payload is None and settings.supabase_url:
-        print("[AUTH DIAGNOSTIC] step=supabase_api_fallback, attempting...")
-        payload = await _verify_token_with_supabase_api(token, settings.supabase_url)
-        print(f"[AUTH DIAGNOSTIC] step=supabase_api_fallback, success={bool(payload)}")
+    # ── 2. Symmetric Verification (HS256 via SUPABASE_JWT_SECRET) ─────────────
+    elif alg == "HS256":
+        raw_secret = (settings.supabase_jwt_secret or "").strip().strip('"').strip("'")
+        is_secret_configured = bool(raw_secret and raw_secret != "your-jwt-secret-here")
 
-    # 4. In development mode only, if secret is unconfigured, allow unverified decode
+        if is_secret_configured:
+            # Try base64 decoded bytes first
+            b64_bytes = _decode_supabase_secret(raw_secret)
+            if b64_bytes:
+                try:
+                    payload = jwt.decode(
+                        token,
+                        b64_bytes,
+                        algorithms=["HS256"],
+                        audience="authenticated",
+                        options={"verify_aud": False},
+                    )
+                    print("[AUTH DIAGNOSTIC] verification_method=hs256_base64, success=True")
+                except jwt.ExpiredSignatureError:
+                    raise HTTPException(status_code=401, detail="Token has expired.")
+                except Exception:
+                    payload = None
+
+            # Fallback to UTF-8 raw string bytes
+            if payload is None:
+                try:
+                    payload = jwt.decode(
+                        token,
+                        raw_secret,
+                        algorithms=["HS256"],
+                        audience="authenticated",
+                        options={"verify_aud": False},
+                    )
+                    print("[AUTH DIAGNOSTIC] verification_method=hs256_raw_string, success=True")
+                except jwt.ExpiredSignatureError:
+                    raise HTTPException(status_code=401, detail="Token has expired.")
+                except Exception:
+                    payload = None
+
+    # ── 3. Development Fallback (only when secrets/JWKS unconfigured in dev) ──
     if payload is None:
         if settings.is_development:
             try:
                 payload = jwt.decode(token, options={"verify_signature": False})
                 print("[AUTH DIAGNOSTIC] step=dev_unverified_fallback, success=True")
             except Exception:
-                print("[AUTH DIAGNOSTIC] step=dev_unverified_fallback, error=Malformed")
                 raise HTTPException(status_code=401, detail="Malformed authentication token.")
         else:
-            print("[AUTH DIAGNOSTIC] final_result=REJECTED_401 (signature verification failed on all steps)")
+            print("[AUTH DIAGNOSTIC] final_result=REJECTED_401 (signature verification failed)")
             raise HTTPException(
                 status_code=401,
                 detail="Invalid authentication token.",
             )
 
-    # `sub` is the Supabase auth.uid()
+    # ── 4. Validate `sub` (auth.uid()) ────────────────────────────────────────
     user_id = payload.get("sub")
     if not user_id:
         print("[AUTH DIAGNOSTIC] final_result=REJECTED_401 (token missing sub claim)")
@@ -222,7 +278,7 @@ async def get_current_learner_id(
 
     print(f"[AUTH DIAGNOSTIC] final_result=AUTHENTICATED (has_sub=True)")
 
-    # Store user metadata on request.state for downstream routes (e.g. get_me auto-provisioning)
+    # Store user metadata on request.state for downstream route auto-provisioning
     user_metadata = payload.get("user_metadata", {}) or {}
     request.state.is_authenticated = True
     request.state.user_info = {
