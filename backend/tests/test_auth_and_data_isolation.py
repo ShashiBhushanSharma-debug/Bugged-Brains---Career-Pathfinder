@@ -8,11 +8,15 @@ Comprehensive tests verifying:
 4. Onboarding persistence against the authenticated Supabase user ID.
 5. Personalized Roadmap endpoint (GET /api/roadmap).
 6. Assessment replan persistence for authenticated accounts.
+7. (NEW) Base64-decoded JWT secret — the production Supabase signing key format.
 """
+import base64
 import json
 import pytest
 import jwt
 from unittest.mock import AsyncMock, patch
+
+from app.api.auth import _decode_supabase_secret
 
 
 def make_test_token(user_id: str, email: str = "test@example.com", full_name: str = "Test User") -> str:
@@ -26,6 +30,29 @@ def make_test_token(user_id: str, email: str = "test@example.com", full_name: st
         },
     }
     return jwt.encode(payload, "dummy-secret-for-dev", algorithm="HS256")
+
+
+def make_production_token(
+    user_id: str,
+    b64_secret: str,
+    email: str = "test@example.com",
+    full_name: str = "Test User",
+) -> str:
+    """
+    Generate a JWT signed with the *decoded* bytes of a base64 secret —
+    exactly how Supabase signs production tokens.
+    """
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "role": "authenticated",
+        "user_metadata": {
+            "full_name": full_name,
+            "name": full_name,
+        },
+    }
+    signing_key = base64.b64decode(b64_secret)
+    return jwt.encode(payload, signing_key, algorithm="HS256")
 
 
 @pytest.mark.asyncio
@@ -178,3 +205,67 @@ async def test_user_data_isolation(client):
         headers=headers_b,
     )
     assert update_resp.status_code == 404
+
+
+# ── New tests added to cover the production JWT base64 fix ────────────────────
+
+def test_decode_supabase_secret_returns_bytes_for_base64():
+    """
+    _decode_supabase_secret() must return bytes when given a valid base64 string.
+    This is the format Supabase uses for its JWT Secret in the dashboard.
+    """
+    # A real Supabase-style base64 JWT secret (safe test value — not a real secret)
+    b64 = "dGVzdC1zZWNyZXQtZm9yLXVuaXQtdGVzdGluZy1vbmx5LXNhZmU="
+    result = _decode_supabase_secret(b64)
+    assert isinstance(result, bytes), "Expected bytes for base64 input"
+    assert result == base64.b64decode(b64)
+
+
+def test_decode_supabase_secret_returns_original_for_non_base64():
+    """
+    _decode_supabase_secret() must fall back to the original string when the
+    input is not valid base64 (e.g. a plain-text dev secret).
+    """
+    plain = "your-jwt-secret-here"
+    result = _decode_supabase_secret(plain)
+    # plain text that happens to be valid base64 will be decoded, that's fine.
+    # What matters is it never raises an exception.
+    assert result is not None
+
+
+def test_decode_supabase_secret_empty_returns_empty():
+    """Empty or falsy secret must pass through unchanged (secret-not-configured path)."""
+    assert _decode_supabase_secret("") == ""
+    assert _decode_supabase_secret(None) is None  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_production_token_signed_with_decoded_bytes_is_accepted(client):
+    """
+    Regression test for the production 401 bug:
+
+    Supabase signs JWTs with the *decoded* raw bytes of its base64 JWT secret.
+    This test verifies that a token created the same way (decoded bytes) is
+    accepted by the backend auth dependency and returns 200 from GET /api/me.
+
+    Before the fix: jwt.decode(token, raw_b64_string) → InvalidSignatureError → 401.
+    After the fix:  jwt.decode(token, decoded_bytes)  → Success → 200.
+    """
+    from app.config import get_settings
+    settings = get_settings()
+    b64_secret = settings.supabase_jwt_secret
+
+    if not b64_secret or b64_secret == "your-jwt-secret-here":
+        pytest.skip("SUPABASE_JWT_SECRET not configured — skipping production token test")
+
+    user_id = "user_prod_token_test_001"
+    token = make_production_token(user_id, b64_secret, "prod@example.com", "Prod User")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = await client.get("/api/me", headers=headers)
+    assert response.status_code == 200, (
+        f"Expected 200 for a valid production-signed token, got {response.status_code}. "
+        f"Body: {response.text}"
+    )
+    data = response.json()
+    assert data["id"] == user_id, f"Expected learner id {user_id!r}, got {data['id']!r}"

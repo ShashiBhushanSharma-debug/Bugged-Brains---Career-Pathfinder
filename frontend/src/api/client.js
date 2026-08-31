@@ -2,8 +2,15 @@
  * src/api/client.js
  *
  * Central HTTP utility for all backend calls.
- * Uses the Vite dev proxy (vite.config.js server.proxy) so relative /api/* paths
- * reach http://localhost:8000 in development without CORS issues.
+ *
+ * Routing:
+ * - Development: VITE_API_URL is unset → API_BASE is '' → relative /api/* paths
+ *   are handled by the Vite dev proxy (vite.config.js server.proxy) which
+ *   forwards them to http://localhost:8000 without CORS issues.
+ * - Production (Vercel): VITE_API_URL is set to the Render backend URL
+ *   (e.g. https://careerpathfinder-backend-ygz0.onrender.com) via the Vercel
+ *   environment variable. Every fetch becomes an absolute cross-origin request
+ *   directly to Render, bypassing Vercel entirely.
  *
  * Phase 3: Automatically injects the Supabase auth access_token into every
  * request so the backend can verify the authenticated user.
@@ -19,6 +26,13 @@
  * or any secrets. All secrets live in backend/.env only.
  */
 import { supabase } from './supabaseClient';
+
+/**
+ * Base URL for all API calls.
+ * - Production: set via the VITE_API_URL Vercel environment variable.
+ * - Development: empty string — the Vite proxy rewrites /api/* to localhost:8000.
+ */
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 // In-memory cache for GET responses: key -> { timestamp, data }
 const apiCache = new Map();
@@ -81,7 +95,7 @@ export async function apiFetch(path, options = {}) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
 
-    const res = await fetch(path, {
+    const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers,
     });
