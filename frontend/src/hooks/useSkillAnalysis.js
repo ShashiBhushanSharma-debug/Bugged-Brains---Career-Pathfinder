@@ -16,6 +16,7 @@
  *   (reasoning not in API — default to [])
  */
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 
 function adaptSkill(s) {
@@ -30,12 +31,17 @@ function adaptSkill(s) {
 }
 
 export function useSkillAnalysis() {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState(null);   // full SkillAnalysisResponse (adapted)
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (authLoading || !user) {
+      return;
+    }
 
     async function load() {
       try {
@@ -78,7 +84,7 @@ export function useSkillAnalysis() {
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [user, authLoading]);
 
-  return { data, loading, error };
+  return { data: user ? data : null, loading: authLoading || (Boolean(user) && loading), error };
 }

@@ -11,15 +11,21 @@
  * Provides a historyByResourceId map for O(1) lookup when merging with resources.
  */
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 
 export function useLearningHistory(status = null) {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (authLoading || !user) {
+      return;
+    }
 
     async function load() {
       try {
@@ -56,7 +62,7 @@ export function useLearningHistory(status = null) {
 
     load();
     return () => { cancelled = true; };
-  }, [status]);
+  }, [user, authLoading, status]);
 
-  return { data, loading, error };
+  return { data: user ? data : null, loading: authLoading || (Boolean(user) && loading), error };
 }

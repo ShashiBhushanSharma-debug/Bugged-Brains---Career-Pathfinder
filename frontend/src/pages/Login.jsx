@@ -1,22 +1,31 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../api/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleIcon from '../components/GoogleIcon';
+import LoadingState from '../components/LoadingState';
 import './Auth.css';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already logged in
+  // If session is still initializing, show a brief loading state
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <LoadingState rows={2} />
+      </div>
+    );
+  }
+
+  // Redirect if already logged in (declarative, no blank screen)
   if (user) {
-    navigate('/dashboard', { replace: true });
-    return null;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleEmailLogin = async (e) => {
